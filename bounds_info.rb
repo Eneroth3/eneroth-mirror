@@ -82,17 +82,24 @@ module BoundsInfo
     ]
   end
 
+  # List the 6 planes of the bounds.
+  # The order is right, back, top, left, front, bottom.
+  #
+  # @param bounds [Geom::BoundingBox]
+  # @param transformation [Geom::Transformation]
+  #
+  # @return [Array<Array<(Geom::Point3d, Geom::Vector3d)>>]
   def self.planes(bounds, transformation = IDENTITY)
     corners = corners(bounds, transformation)
     normals = normals(bounds, transformation)
 
     [
-      [corners[0], normals[0]],
-      [corners[0], normals[1]],
-      [corners[0], normals[2]],
-      [corners[7], normals[3]],
-      [corners[7], normals[4]],
-      [corners[7], normals[5]],
+      [corners[7], normals[0]],
+      [corners[7], normals[1]],
+      [corners[7], normals[2]],
+      [corners[0], normals[3]],
+      [corners[0], normals[4]],
+      [corners[0], normals[5]],
     ]
   end
 
