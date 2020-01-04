@@ -5,6 +5,7 @@ module Eneroth
     ### Sketchup.require "#{PLUGIN_ROOT}/mirror"
     Sketchup.require "#{PLUGIN_ROOT}/bounds_helper"
     Sketchup.require "#{PLUGIN_ROOT}/tool"
+    Sketchup.require "#{PLUGIN_ROOT}/my_geom"
 
     # Tool for mirroring selection around a plane.
     class MirrorTool < Tool
@@ -44,7 +45,7 @@ module Eneroth
           @tooltip = "On Bounds"
         else
           @point = @ip.position
-          @normal = transform_as_normal(@ip.face.normal, @ip.transformation) if @ip.face
+          @normal = MyGeom.transform_as_normal(@ip.face.normal, @ip.transformation) if @ip.face
           @tooltip = @ip.tooltip
         end
 
@@ -81,14 +82,6 @@ module Eneroth
         view.set_color_from_line(ORIGIN, ORIGIN.offset(direction))
         view.draw(GL_LINE_LOOP, points)
       end
-
-      def transform_as_normal(normal, transformation)
-        tangent = normal.axes[0].transform(transformation)
-        bi_tangent = normal.axes[1].transform(transformation)
-
-        (tangent * bi_tangent).normalize
-      end
     end
   end
 end
-

@@ -2,6 +2,8 @@
 
 module Eneroth
   module Mirror
+    Sketchup.require "#{PLUGIN_ROOT}/my_geom"
+
     # Extract useful info from bounding boxes.
     #
     # Note that the bounds of an instance itself are invisible in SketchUp.
@@ -95,12 +97,12 @@ module Eneroth
       # @return [Array<Geom::Vector3d>]
       def self.normals(bounds, transformation = IDENTITY)
         [
-          transform_as_normal(X_AXIS, transformation),
-          transform_as_normal(Y_AXIS, transformation),
-          transform_as_normal(Z_AXIS, transformation),
-          transform_as_normal(X_AXIS.reverse, transformation),
-          transform_as_normal(Y_AXIS.reverse, transformation),
-          transform_as_normal(Z_AXIS.reverse, transformation),
+          MyGeom.transform_as_normal(X_AXIS, transformation),
+          MyGeom.transform_as_normal(Y_AXIS, transformation),
+          MyGeom.transform_as_normal(Z_AXIS, transformation),
+          MyGeom.transform_as_normal(X_AXIS.reverse, transformation),
+          MyGeom.transform_as_normal(Y_AXIS.reverse, transformation),
+          MyGeom.transform_as_normal(Z_AXIS.reverse, transformation)
         ]
       end
 
@@ -153,36 +155,10 @@ module Eneroth
 
       # Private
 
-      def self.transform_as_normal(normal, transformation)
-        tangent = normal.axes[0].transform(transformation)
-        bi_tangent = normal.axes[1].transform(transformation)
-
-        (tangent * bi_tangent).normalize
-      end
-      private_class_method :transform_as_normal
-
       def self.facing?(corners)
-        polygon_normal(corners).z < 0
+        MyGeom.polygon_normal(corners).z < 0
       end
       private_class_method :facing?
-
-      # Find normal vector from an array of points representing a polygon.
-      #
-      # @param points [Array<Geom::Point3d>]
-      #
-      # @return [Geom::Vector3d]
-      def self.polygon_normal(points)
-        normal = Geom::Vector3d.new
-        points.each_with_index do |pt0, i|
-          pt1 = points[i + 1] || points.first
-          normal.x += (pt0.y - pt1.y) * (pt0.z + pt1.z)
-          normal.y += (pt0.z - pt1.z) * (pt0.x + pt1.x)
-          normal.z += (pt0.x - pt1.x) * (pt0.y + pt1.y)
-        end
-
-        normal.normalize
-      end
-      private_class_method :polygon_normal
     end
   end
 end
