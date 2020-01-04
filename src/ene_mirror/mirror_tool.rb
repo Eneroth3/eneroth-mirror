@@ -72,9 +72,7 @@ module Eneroth
         # Then InputPoint or point on bounds are used depending on which is
         # closest.
         if ip_in_selection? || !bounds_in_front_of_ip?
-          # REVIEW: Keep last orientation when hovering empty space or only
-          # allow mirroring when hovering something that has an orientation?
-          normal_from_ip_direction
+          @normal = ip_direction
           @point = @ip.position
           @tooltip = @ip.tooltip
         else
@@ -84,7 +82,7 @@ module Eneroth
         end
       end
 
-      def normal_from_ip_direction
+      def ip_direction
         # TODO: Make sure face is what @ip gets position from and not just in
         # the background.
 
@@ -92,10 +90,10 @@ module Eneroth
         # User likely doesn't want to flip object around itself causing an
         # overlap.
         if @ip.edge && !ip_in_selection?
-          @normal = @ip.edge.line[1].transform(@ip.transformation)
+          @ip.edge.line[1].transform(@ip.transformation)
         elsif @ip.face
           # TODO: Transform as normal.
-          @normal = @ip.face.normal.transform(@ip.transformation)
+          @ip.face.normal.transform(@ip.transformation)
         end
       end
 
