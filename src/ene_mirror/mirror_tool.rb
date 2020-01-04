@@ -95,8 +95,7 @@ module Eneroth
         if @ip.edge && !ip_in_selection?
           @ip.edge.line[1].transform(@ip.transformation)
         elsif @ip.face
-          # TODO: Transform as normal.
-          @ip.face.normal.transform(@ip.transformation)
+          MyGeom.transform_as_normal(@ip.face.normal, @ip.transformation)
         end
       end
 
