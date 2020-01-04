@@ -81,4 +81,77 @@ module BoundsInfo
       transformation.zaxis.reverse
     ]
   end
+
+  def self.planes(bounds, transformation = IDENTITY)
+    corners = corners(bounds, transformation)
+    normals = normals(bounds, transformation)
+
+    [
+      [corners[0], normals[0]],
+      [corners[0], normals[1]],
+      [corners[0], normals[2]],
+      [corners[7], normals[3]],
+      [corners[7], normals[4]],
+      [corners[7], normals[5]],
+    ]
+  end
+
+  # Find intersection between line and bounding box.
+  #
+  # @param line [Array<(Geom::Point3d, Geom::Vector3d)>]
+  # @param bounds [Geom::BoundingBox]
+  # @param transformation [Geom::Transformation]
+  #
+  # @return [Array<(Geom::Point3d, Geom::Vector3d, Length)>, nil]
+  #  Intersection position, normal vector and length along line.
+  def self.intersect_line(line, bounds, transformation = IDENTITY)
+    line_transformation = Geom::Transformation.new(*line)
+    sides = sides(bounds, line_transformation.inverse * transformation)
+    index = sides.find_index { |s| facing?(s) && Geom.point_in_polygon_2D(ORIGIN, s, true) }
+    return unless index
+
+    plane = planes(bounds, transformation)[index]
+    intersection = Geom.intersect_line_plane(line, plane)
+
+    # REVIEW: Check that length is correct. Used to find what bounds is closest
+    # to camera.
+    [intersection, plane[1], intersection.transform(line_transformation).z, index]
+  end
+
+  # Test if line can possibly intersect bounding box.
+  def self.close?
+    # check if distance bewteen line and bounds center is less or equal to half
+    # the bounds diagonal.
+  end
+
+  # Private
+  # TODO: Mark as private.
+
+  def self.facing?(corners)
+    polygon_normal(corners).z < 0
+  end
+
+  # Find normal vector from an array of points representing a polygon.
+  #
+  # @param points [Array<Geom::Point3d>]
+  #
+  # @example
+  #   # Find Normal of a Face
+  #   # Select a face and run:
+  #   face = Sketchup.active_model.selection.first
+  #   points = face.vertices.map(&:position)
+  #   normal = SkippyLib::Geom.polygon_normal(points)
+  #
+  # @return [Geom::Vector3d]
+  def self.polygon_normal(points)
+    normal = Geom::Vector3d.new
+    points.each_with_index do |pt0, i|
+      pt1 = points[i + 1] || points.first
+      normal.x += (pt0.y - pt1.y) * (pt0.z + pt1.z)
+      normal.y += (pt0.z - pt1.z) * (pt0.x + pt1.x)
+      normal.z += (pt0.x - pt1.x) * (pt0.y + pt1.y)
+    end
+
+    normal.normalize
+  end
 end
