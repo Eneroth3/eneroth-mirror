@@ -6,8 +6,11 @@ class TestTool
   CIRCLE_RADIUS = 50
   CIRCLE_SEGMENTS = 48
 
-  def activate
+  def initialize
     @ip = Sketchup::InputPoint.new
+    @point = nil
+    @normal = nil
+    @tooltip = nil
   end
 
   def deactivate(view)
@@ -15,32 +18,28 @@ class TestTool
   end
 
   def draw(view)
-    point = @intersection&.position || @ip.position
-    # TODO: Handle situation with no normal picked.
-    @normal ||= Z_AXIS
-    preview_circle(view, point, @normal)
+    preview_circle(view, @point, @normal) if @normal
 
-    @ip.draw(view) unless @intersection
-    view.tooltip = @intersection ? "From Bounds" : @ip.tooltip
+    @ip.draw(view)
+    view.tooltip = @tooltip if @tooltip
   end
 
   def onLButtonDown(_flags, _x, _y, view)
-    return unless @intersection
-    view.model.active_entities.add_cpoint(@intersection.position)
+    return unless @point
+    view.model.active_entities.add_cpoint(@point)
   end
 
   def onMouseMove(_flags, x, y, view)
     @ip.pick(view, x, y)
-    # Only pick from bounds if input point isn't on geometry.
-    # REVIEW: Currently the presence if an @intersection dictates whether
-    # point should be taken from intersection or inputpoint and tooltip
-    # and stuff, spread out over different methods. Instead confine logic here
-    # and just define a plane and a tooltip, and let other methods be unaware
-    # of these rules.
-    @intersection = @ip.degrees_of_freedom == 3 ? pick_bounds(view, x, y) : nil
-
-    @normal = transform_as_normal(@ip.face.normal, @ip.transformation) if @ip.face
-    @normal = @intersection.normal if @intersection
+    if @ip.degrees_of_freedom == 3 && (intersection = pick_bounds(view, x, y))
+      @point = intersection.position
+      @normal = intersection.normal
+      @tooltip = "On Bounds"
+    else
+      @point = @ip.position
+      @normal = transform_as_normal(@ip.face.normal, @ip.transformation) if @ip.face
+      @tooltip = @ip.tooltip
+    end
 
     view.invalidate
   end
@@ -82,7 +81,6 @@ class TestTool
 
     (tangent * bi_tangent).normalize
   end
-  private_class_method :transform_as_normal
 
 end
 
