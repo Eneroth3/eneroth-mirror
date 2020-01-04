@@ -30,7 +30,10 @@ module Eneroth
       def draw(view)
         preview_circle(view, @point, @normal) if @normal
 
-        @ip.draw(view)
+        # If point comes from bounds but InputPoint is slightly off due to
+        # inference, no dotted inference lines should be shown.
+        @ip.draw(view) if @point == @ip.position
+
         view.tooltip = @tooltip if @tooltip
       end
 
