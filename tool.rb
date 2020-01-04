@@ -31,21 +31,33 @@ class TestTool
     @point = nil
     @tooltip = nil
 
-    # In flip tool all instances in the active drawing context should be
-    # checked, not just the selected one.
-    entity = view.model.selection.first
-    result = BoundsInfo.intersect_line(view.pickray(x, y), entity.definition.bounds, entity.transformation)
-    if result
+    view.model.selection.clear
+
+    # Actual flip tool would probably just look for "inference" in selected
+    # instances bounds.
+    # TODO: Find bounds with lowest "length".
+    view.model.active_entities.each do |instance|
+      next unless instance?(instance)
+
+      result = BoundsInfo.intersect_line(view.pickray(x, y), instance.definition.bounds, instance.transformation)
+      next unless result
+
       @point = result[0]
       @normal = result[1]
       ### @tooltip = "From Bounds"
       @tooltip = result[3].to_s
+
+      view.model.selection.add(instance)
     end
 
     view.invalidate
   end
 
   private
+
+  def instance?(entity)
+    [Sketchup::Group, Sketchup::ComponentInstance].include?(entity.class)
+  end
 
   def preview_circle(view, position, direction)
     points = CIRCLE_SEGMENTS.times.map { |n|
