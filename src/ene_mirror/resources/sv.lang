@@ -1,0 +1,10 @@
+{
+  "name": {"native":"Svenska"},
+  "dictionary": {
+    "action_mirror": "Spegla",
+    "action_mirror_description": "Spegla object.",
+    "lang_option": "Språk",
+    "system_lang_name": "Systemstandard",
+    "unlicensed":"%{name} saknar en licens. Vill du öppna Extension Warehouse för att skaffa en licens?\n\nOm problemet kvarstår, vänligen kontakta SketchUp-supporten direkt."
+  }
+}
