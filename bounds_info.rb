@@ -73,12 +73,12 @@ module BoundsInfo
   # @return [Array<Geom::Vector3d>]
   def self.normals(bounds, transformation = IDENTITY)
     [
-      transformation.xaxis,
-      transformation.yaxis,
-      transformation.zaxis,
-      transformation.xaxis.reverse,
-      transformation.yaxis.reverse,
-      transformation.zaxis.reverse
+      transform_as_normal(X_AXIS, transformation),
+      transform_as_normal(Y_AXIS, transformation),
+      transform_as_normal(Z_AXIS, transformation),
+      transform_as_normal(X_AXIS.reverse, transformation),
+      transform_as_normal(Y_AXIS.reverse, transformation),
+      transform_as_normal(Z_AXIS.reverse, transformation),
     ]
   end
 
@@ -133,6 +133,13 @@ module BoundsInfo
 
   # Private
   # TODO: Mark as private.
+
+  def self.transform_as_normal(normal, transformation)
+    tangent = normal.axes[0].transform(transformation)
+    bi_tangent = normal.axes[1].transform(transformation)
+
+    (tangent * bi_tangent).normalize
+  end
 
   def self.facing?(corners)
     polygon_normal(corners).z < 0

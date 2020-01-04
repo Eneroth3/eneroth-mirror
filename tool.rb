@@ -5,7 +5,7 @@ class TestTool
   CIRCLE_SEGMENTS = 48
 
   def activate
-    @ip = Sketchup::InputPoint.new
+    ###@ip = Sketchup::InputPoint.new
   end
 
   def deactivate(view)
@@ -17,12 +17,17 @@ class TestTool
 
     preview_circle(view, @point || @ip.position, @normal || Z_AXIS)
 
-    @ip.draw(view)
+    ###@ip.draw(view)
     view.tooltip = @tooltip || @ip.tooltip
   end
 
+  def onLButtonDown(_flags, _x, _y, view)
+    return unless @point
+    view.model.active_entities.add_cpoint(@point)
+  end
+
   def onMouseMove(_flags, x, y, view)
-    @ip.pick(view, x, y)
+    ###@ip.pick(view, x, y)
     @point = nil
     @tooltip = nil
 
