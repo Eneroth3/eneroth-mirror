@@ -14,6 +14,8 @@ module Eneroth
 
       def initialize
         @ip = Sketchup::InputPoint.new
+        @bounds_intersection = nil
+
         @point = nil
         @normal = nil
         @tooltip = nil
@@ -32,6 +34,13 @@ module Eneroth
         view.tooltip = @tooltip if @tooltip
       end
 
+      def getExtents
+        bounds = Sketchup.active_model.bounds
+        bounds.add(@point) if @point
+
+        bounds
+      end
+
       def onLButtonDown(_flags, _x, _y, view)
         return unless @point
         view.model.active_entities.add_cpoint(@point)
@@ -39,15 +48,8 @@ module Eneroth
 
       def onMouseMove(_flags, x, y, view)
         @ip.pick(view, x, y)
-        if @ip.degrees_of_freedom == 3 && (intersection = pick_bounds(view, x, y))
-          @point = intersection.position
-          @normal = intersection.normal
-          @tooltip = "On Bounds"
-        else
-          @point = @ip.position
-          @normal = MyGeom.transform_as_normal(@ip.face.normal, @ip.transformation) if @ip.face
-          @tooltip = @ip.tooltip
-        end
+        pick_bounds(view, x, y)
+        pick_plane
 
         view.invalidate
       end
@@ -56,13 +58,58 @@ module Eneroth
 
       def pick_bounds(view, x, y)
         ray = view.pickray(x, y)
+        intersections = view.model.selection.map do |instance|
+          next unless instance?(instance)
 
-        intersections = view.model.selection.map do |ins|
-          next unless instance?(ins)
-
-          BoundsHelper.intersect_line(ray, ins.definition.bounds, ins.transformation)
+          BoundsHelper.intersect_line(ray, instance.definition.bounds,
+                                      instance.transformation)
         end
-        intersections.compact.min_by(&:distance)
+        @bounds_intersection = intersections.compact.min_by(&:distance)
+      end
+
+      def pick_plane
+        # InputPoint in selection has precedence.
+        # Then InputPoint or point on bounds are used depending on which is
+        # closest.
+        if ip_in_selection? || !bounds_in_front_of_ip?
+          # REVIEW: Keep last orientation when hovering empty space or only
+          # allow mirroring when hovering something that has an orientation?
+          normal_from_ip_direction
+          @point = @ip.position
+          @tooltip = @ip.tooltip
+        else
+          @point = @bounds_intersection.position
+          @normal = @bounds_intersection.normal
+          @tooltip = OB[:inference_on_bounds]
+        end
+      end
+
+      def normal_from_ip_direction
+        # TODO: Make sure face is what @ip gets position from and not just in
+        # the background.
+
+        # Flip along hovered edge, but not if edge is in the selection.
+        # User likely doesn't want to flip object around itself causing an
+        # overlap.
+        if @ip.edge && !ip_in_selection?
+          @normal = @ip.edge.line[1].transform(@ip.transformation)
+        elsif @ip.face
+          # TODO: Transform as normal.
+          @normal = @ip.face.normal.transform(@ip.transformation)
+        end
+      end
+
+      def ip_in_selection?
+        !(@ip.instance_path.to_a & Sketchup.active_model.selection.to_a).empty?
+      end
+
+      def bounds_in_front_of_ip?
+        @bounds_intersection && @bounds_intersection.distance < ip_distance
+      end
+
+      def ip_distance
+        # TODO: Make work properly in parallel projection.
+        @ip.position.distance(Sketchup.active_model.active_view.camera.eye)
       end
 
       def instance?(entity)

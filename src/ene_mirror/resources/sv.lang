@@ -3,6 +3,7 @@
   "dictionary": {
     "action_mirror": "Spegla",
     "action_mirror_description": "Spegla object.",
+    "inference_on_bounds": "På avgränsningsbox",
     "lang_option": "Språk",
     "system_lang_name": "Systemstandard",
     "unlicensed":"%{name} saknar en licens. Vill du öppna Extension Warehouse för att skaffa en licens?\n\nOm problemet kvarstår, vänligen kontakta SketchUp-supporten direkt."

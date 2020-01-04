@@ -72,7 +72,7 @@ module Eneroth
     # @return [Boolean]
     def self.licensed?
       # TODO: Replace id.
-      # TODO: Add licensing check elsewhere.
+      # TODO: Add additional licensing check elsewhere.
       identifier = "6b8d9d0f-3f8b-4101-9e0f-37dbf4372339"
       license = Sketchup::Licensing.get_extension_license(identifier)
       return true if license.licensed?
