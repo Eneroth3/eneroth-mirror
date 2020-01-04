@@ -1,11 +1,13 @@
 # Test tool for previewing bounds intersection.
-
+#
+# Hover face to pick its normal or hover bounds outside faces to pick bounds
+# normal.
 class TestTool
   CIRCLE_RADIUS = 50
   CIRCLE_SEGMENTS = 48
 
   def activate
-    ###@ip = Sketchup::InputPoint.new
+    @ip = Sketchup::InputPoint.new
   end
 
   def deactivate(view)
@@ -13,50 +15,48 @@ class TestTool
   end
 
   def draw(view)
-    return unless @point
+    point = @intersection&.position || @ip.position
+    # TODO: Handle situation with no normal picked.
+    @normal ||= Z_AXIS
+    preview_circle(view, point, @normal)
 
-    preview_circle(view, @point || @ip.position, @normal || Z_AXIS)
-
-    ###@ip.draw(view)
-    view.tooltip = @tooltip || @ip.tooltip
+    @ip.draw(view) unless @intersection
+    view.tooltip = @intersection ? "From Bounds" : @ip.tooltip
   end
 
   def onLButtonDown(_flags, _x, _y, view)
-    return unless @point
-    view.model.active_entities.add_cpoint(@point)
+    return unless @intersection
+    view.model.active_entities.add_cpoint(@intersection.position)
   end
 
   def onMouseMove(_flags, x, y, view)
-    ###@ip.pick(view, x, y)
-    @point = nil
-    @tooltip = nil
+    @ip.pick(view, x, y)
+    # Only pick from bounds if input point isn't on geometry.
+    # REVIEW: Currently the presence if an @intersection dictates whether
+    # point should be taken from intersection or inputpoint and tooltip
+    # and stuff, spread out over different methods. Instead confine logic here
+    # and just define a plane and a tooltip, and let other methods be unaware
+    # of these rules.
+    @intersection = @ip.degrees_of_freedom == 3 ? pick_bounds(view, x, y) : nil
 
-    view.model.selection.clear
-
-    # Actual flip tool would probably just look for "inference" in selected
-    # instances bounds.
-    results = view.model.active_entities.map do |instance|
-      next unless instance?(instance)
-
-      result = BoundsInfo.intersect_line(view.pickray(x, y), instance.definition.bounds, instance.transformation)
-      next unless result
-
-      result << instance
-    end
-    result = results.compact.min_by { |r| r[2] }
-    return unless result
-
-    @point = result[0]
-    @normal = result[1]
-    ### @tooltip = "From Bounds"
-    @tooltip = result[2].to_s
-
-    view.model.selection.add(result[4])
+    @normal = transform_as_normal(@ip.face.normal, @ip.transformation) if @ip.face
+    @normal = @intersection.normal if @intersection
 
     view.invalidate
   end
 
   private
+
+  def pick_bounds(view, x, y)
+    ray = view.pickray(x, y)
+
+    intersections = view.model.selection.map do |ins|
+      next unless instance?(ins)
+
+      BoundsInfo.intersect_line(ray, ins.definition.bounds, ins.transformation)
+    end
+    intersections.compact.min_by(&:distance)
+  end
 
   def instance?(entity)
     [Sketchup::Group, Sketchup::ComponentInstance].include?(entity.class)
@@ -75,6 +75,15 @@ class TestTool
     view.set_color_from_line(ORIGIN, ORIGIN.offset(direction))
     view.draw(GL_LINE_LOOP, points)
   end
+
+  def transform_as_normal(normal, transformation)
+    tangent = normal.axes[0].transform(transformation)
+    bi_tangent = normal.axes[1].transform(transformation)
+
+    (tangent * bi_tangent).normalize
+  end
+  private_class_method :transform_as_normal
+
 end
 
 Sketchup.active_model.select_tool(TestTool.new)

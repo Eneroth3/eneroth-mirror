@@ -1,18 +1,36 @@
 # Extract useful info from bounding boxes.
+#
+# Note that the bounds of an instance itself are invisible in SketchUp.
+# Typically what you want is the transformed bounds of its definition.
+#
+# @examples
+#   # Corners of the invisible bounds orthogonal to the drawing axes.
+#   BoundsInfo.corners(instance.bounds)
+#
+#   # Corners of visible selection bounds for an instance.
+#   BoundsInfo.corners(instance.definition.bounds, instance.transformation)
 module BoundsInfo
+  # Represents the intersection between a line and a bounding box.
+  #
+  # @!attribute position
+  #   @return [Geom::Point3d]
+  # @!attribute normal
+  #   @return [Geom::Vector3d]
+  # @!attribute distance
+  #   @return [Length]
+  #     Where along line bounds where intersected. Can be negative.
+  #     Useful for identifying the front-most intersected bounds.
+  # @!attribute side
+  #   @return [Integer]
+  #     0 = right, 1 = back, 2 = top, 3 = left, 4 = front, 5 = bottom.
+  Intersection = Struct.new(:position, :normal, :distance, :side)
+
   # List all 8 corners of the bounding box. The order is
   # bottom front left, bottom front right, bottom back left, bottom back right,
   # top front left, top front right, top back left, top back right.
   #
   # @param bounds [Geom::BoundingBox]
   # @param transformation [Geom::Transformation]
-  #
-  # @examples
-  #   # Corners of the invisible box orthogonal to the drawing axes.
-  #   BoundsInfo.corners(instance.bounds)
-  #
-  #   # Corners of visible selection box for an instance.
-  #   BoundsInfo.corners(instance.definition.bounds, instance.transformation)
   #
   # @return [Array<Geom::Point3d>]
   def self.corners(bounds, tranformation = IDENTITY)
@@ -109,8 +127,7 @@ module BoundsInfo
   # @param bounds [Geom::BoundingBox]
   # @param transformation [Geom::Transformation]
   #
-  # @return [Array<(Geom::Point3d, Geom::Vector3d, Length, Integer)>, nil]
-  #  Intersection position, normal vector and length along line.
+  # @return [Intersection]
   def self.intersect_line(line, bounds, transformation = IDENTITY)
     # REVIEW: Use struct for return values?
 
@@ -122,22 +139,15 @@ module BoundsInfo
     plane = planes(bounds, transformation)[index]
     intersection = Geom.intersect_line_plane(line, plane)
 
-    [
+    Intersection.new(
       intersection,
       plane[1],
       intersection.transform(line_transformation.inverse).z,
       index
-    ]
-  end
-
-  # Test if line can possibly intersect bounding box.
-  def self.close?
-    # check if distance bewteen line and bounds center is less or equal to half
-    # the bounds diagonal.
+    )
   end
 
   # Private
-  # TODO: Mark as private.
 
   def self.transform_as_normal(normal, transformation)
     tangent = normal.axes[0].transform(transformation)
@@ -145,21 +155,16 @@ module BoundsInfo
 
     (tangent * bi_tangent).normalize
   end
+  private_class_method :transform_as_normal
 
   def self.facing?(corners)
     polygon_normal(corners).z < 0
   end
+  private_class_method :facing?
 
   # Find normal vector from an array of points representing a polygon.
   #
   # @param points [Array<Geom::Point3d>]
-  #
-  # @example
-  #   # Find Normal of a Face
-  #   # Select a face and run:
-  #   face = Sketchup.active_model.selection.first
-  #   points = face.vertices.map(&:position)
-  #   normal = SkippyLib::Geom.polygon_normal(points)
   #
   # @return [Geom::Vector3d]
   def self.polygon_normal(points)
@@ -173,4 +178,5 @@ module BoundsInfo
 
     normal.normalize
   end
+  private_class_method :polygon_normal
 end
