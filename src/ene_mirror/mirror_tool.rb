@@ -3,9 +3,12 @@
 module Eneroth
   module Mirror
     ### Sketchup.require "#{PLUGIN_ROOT}/mirror"
+    Sketchup.require "#{PLUGIN_ROOT}/vendor/refined_input_point"
     Sketchup.require "#{PLUGIN_ROOT}/bounds_helper"
     Sketchup.require "#{PLUGIN_ROOT}/tool"
     Sketchup.require "#{PLUGIN_ROOT}/my_geom"
+
+    using RefinedInputPoint
 
     # Tool for mirroring selection around a plane.
     class MirrorTool < Tool
@@ -86,16 +89,13 @@ module Eneroth
       end
 
       def ip_direction
-        # TODO: Make sure face is what @ip gets position from and not just in
-        # the background.
-
         # Flip along hovered edge, but not if edge is in the selection.
         # User likely doesn't want to flip object around itself causing an
         # overlap.
-        if @ip.edge && !ip_in_selection?
-          @ip.edge.line[1].transform(@ip.transformation)
-        elsif @ip.face
-          MyGeom.transform_as_normal(@ip.face.normal, @ip.transformation)
+        if @ip.source_edge && !ip_in_selection?
+          @ip.source_edge.line[1].transform(@ip.transformation)
+        elsif @ip.source_face
+          MyGeom.transform_as_normal(@ip.source_face.normal, @ip.transformation)
         end
       end
 
