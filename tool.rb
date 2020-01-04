@@ -35,20 +35,23 @@ class TestTool
 
     # Actual flip tool would probably just look for "inference" in selected
     # instances bounds.
-    # TODO: Find bounds with lowest "length".
-    view.model.active_entities.each do |instance|
+    results = view.model.active_entities.map do |instance|
       next unless instance?(instance)
 
       result = BoundsInfo.intersect_line(view.pickray(x, y), instance.definition.bounds, instance.transformation)
       next unless result
 
-      @point = result[0]
-      @normal = result[1]
-      ### @tooltip = "From Bounds"
-      @tooltip = result[3].to_s
-
-      view.model.selection.add(instance)
+      result << instance
     end
+    result = results.compact.min_by { |r| r[2] }
+    return unless result
+
+    @point = result[0]
+    @normal = result[1]
+    ### @tooltip = "From Bounds"
+    @tooltip = result[2].to_s
+
+    view.model.selection.add(result[4])
 
     view.invalidate
   end

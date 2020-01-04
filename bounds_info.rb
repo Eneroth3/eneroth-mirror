@@ -109,9 +109,11 @@ module BoundsInfo
   # @param bounds [Geom::BoundingBox]
   # @param transformation [Geom::Transformation]
   #
-  # @return [Array<(Geom::Point3d, Geom::Vector3d, Length)>, nil]
+  # @return [Array<(Geom::Point3d, Geom::Vector3d, Length, Integer)>, nil]
   #  Intersection position, normal vector and length along line.
   def self.intersect_line(line, bounds, transformation = IDENTITY)
+    # REVIEW: Use struct for return values?
+
     line_transformation = Geom::Transformation.new(*line)
     sides = sides(bounds, line_transformation.inverse * transformation)
     index = sides.find_index { |s| facing?(s) && Geom.point_in_polygon_2D(ORIGIN, s, true) }
@@ -120,9 +122,12 @@ module BoundsInfo
     plane = planes(bounds, transformation)[index]
     intersection = Geom.intersect_line_plane(line, plane)
 
-    # REVIEW: Check that length is correct. Used to find what bounds is closest
-    # to camera.
-    [intersection, plane[1], intersection.transform(line_transformation).z, index]
+    [
+      intersection,
+      plane[1],
+      intersection.transform(line_transformation.inverse).z,
+      index
+    ]
   end
 
   # Test if line can possibly intersect bounding box.
