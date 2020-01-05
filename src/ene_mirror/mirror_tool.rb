@@ -49,7 +49,7 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def draw(view)
-        if has_plane? && !view.model.selection.empty?
+        if plane? && !view.model.selection.empty?
           tr = transformation
           view.draw(GL_LINES, @preview_lines.map { |pt| pt.transform(tr) })
         end
@@ -75,7 +75,7 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onLButtonDown(_flags, _x, _y, view)
-        return if !has_plane? || view.model.selection.empty?
+        return if !plane? || view.model.selection.empty?
 
         model = Sketchup.active_model
         model.start_operation(OB[:action_mirror], true)
@@ -155,15 +155,14 @@ module Eneroth
       end
 
       def bounds_in_front_of_ip?
-        @bounds_intersection && @bounds_intersection.distance < ip_distance
+        return false unless @bounds_intersection
+
+        eye = Sketchup.active_model.active_view.camera.eye
+
+        @bounds_intersection.position.distance(eye) < @ip.position.distance(eye)
       end
 
-      def ip_distance
-        # TODO: Make work properly in parallel projection.
-        @ip.position.distance(Sketchup.active_model.active_view.camera.eye)
-      end
-
-      def has_plane?
+      def plane?
         !!@normal
       end
 
