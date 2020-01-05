@@ -13,11 +13,8 @@ module Eneroth
 
     # Tool for mirroring selection around a plane.
     class MirrorTool < Tool
-      # Radius of plane preview in logical pixels.
-      CIRCLE_RADIUS = 50
-
-      # Segment count for plane preview.
-      CIRCLE_SEGMENTS = 48
+      # Side of plane preview in logical pixels.
+      PREVIEW_SIDE = 100
 
       # Native Move
       CURSOR_MOVE = 641
@@ -228,12 +225,13 @@ module Eneroth
         [Sketchup::Group, Sketchup::ComponentInstance].include?(entity.class)
       end
 
-      def preview_circle(view, position, direction, radius = CIRCLE_RADIUS)
-        points = CIRCLE_SEGMENTS.times.map do |n|
-          a = 2 * Math::PI / CIRCLE_SEGMENTS * n
-
-          Geom::Point3d.new(Math.cos(a) * radius, Math.sin(a) * radius, 0)
-        end
+      def preview_circle(view, position, direction, side = PREVIEW_SIDE)
+        points = [
+          Geom::Point3d.new(-side / 2, -side / 2, 0),
+          Geom::Point3d.new(side / 2, -side / 2, 0),
+          Geom::Point3d.new(side / 2, side / 2, 0),
+          Geom::Point3d.new(-side / 2, side / 2, 0)
+        ]
         transformation =
           Geom::Transformation.new(position, direction) *
           Geom::Transformation.scaling(view.pixels_to_model(1, position))
