@@ -2,10 +2,11 @@
 
 module Eneroth
   module Mirror
-    ### Sketchup.require "#{PLUGIN_ROOT}/mirror"
     Sketchup.require "#{PLUGIN_ROOT}/vendor/refined_input_point"
     Sketchup.require "#{PLUGIN_ROOT}/bounds_helper"
     Sketchup.require "#{PLUGIN_ROOT}/tool"
+    Sketchup.require "#{PLUGIN_ROOT}/extract_lines"
+    Sketchup.require "#{PLUGIN_ROOT}/copy_entities"
     Sketchup.require "#{PLUGIN_ROOT}/my_geom"
 
     using RefinedInputPoint
@@ -21,12 +22,20 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def initialize
+        model = Sketchup.active_model
+
         @ip = Sketchup::InputPoint.new
         @bounds_intersection = nil
 
         @point = nil
         @normal = nil
         @tooltip = nil
+
+        # Flat array of points making up lines to preview, without any
+        # mirroring.
+        @preview_lines = ExtractLines.extract_lines(model.selection)
+
+        @copy_mode = true
       end
 
       # @api
@@ -40,6 +49,11 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def draw(view)
+        if has_plane? && !view.model.selection.empty?
+          tr = transformation
+          view.draw(GL_LINES, @preview_lines.map { |pt| pt.transform(tr) })
+        end
+
         preview_circle(view, @point, @normal) if @normal
 
         # If point comes from bounds but InputPoint is slightly off due to
@@ -61,9 +75,17 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onLButtonDown(_flags, _x, _y, view)
-        return unless @point
+        return if !has_plane? || view.model.selection.empty?
 
-        view.model.active_entities.add_cpoint(@point)
+        model = Sketchup.active_model
+        model.start_operation(OB[:action_mirror], true)
+        added = CopyEntities.move(transformation, model.selection, @copy_mode)
+        model.selection.add(added)
+        model.commit_operation
+
+        @preview_lines = ExtractLines.extract_lines(model.selection)
+        @normal = @point = nil
+        @bounds_intersection = nil
       end
 
       # @api
@@ -139,6 +161,15 @@ module Eneroth
       def ip_distance
         # TODO: Make work properly in parallel projection.
         @ip.position.distance(Sketchup.active_model.active_view.camera.eye)
+      end
+
+      def has_plane?
+        !!@normal
+      end
+
+      def transformation
+        plane = Geom::Transformation.new(@point, @normal)
+        plane * Geom::Transformation.scaling(1, 1, -1) * plane.inverse
       end
 
       def instance?(entity)
