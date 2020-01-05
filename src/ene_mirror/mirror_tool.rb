@@ -25,6 +25,7 @@ module Eneroth
         model = Sketchup.active_model
 
         @ip = Sketchup::InputPoint.new
+        @ip_reference = Sketchup::InputPoint.new
         @bounds_intersection = nil
 
         @point = nil
@@ -36,6 +37,7 @@ module Eneroth
         @preview_lines = ExtractLines.extract_lines(model.selection)
 
         @copy_mode = true
+        @mouse_down = false
       end
 
       # @api
@@ -53,12 +55,17 @@ module Eneroth
           tr = transformation
           view.draw(GL_LINES, @preview_lines.map { |pt| pt.transform(tr) })
         end
+        if @mouse_down
+          view.line_stipple = "-"
+          view.draw(GL_LINES, @ip.position, @point)
+          view.line_stipple = ""
+        end
 
         preview_circle(view, @point, @normal) if @normal
 
         # If point comes from bounds but InputPoint is slightly off due to
         # inference, no dotted inference lines should be shown.
-        @ip.draw(view) if @point == @ip.position
+        @ip.draw(view) if @point == @ip.position || @mouse_down
 
         view.tooltip = @tooltip if @tooltip
       end
@@ -74,7 +81,15 @@ module Eneroth
 
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
-      def onLButtonDown(_flags, _x, _y, view)
+      def onLButtonDown(_flags, x, y, view)
+        @mouse_down = [x, y]
+        @ip_reference.copy!(@ip)
+      end
+
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
+      def onLButtonUp(_flags, _x, _y, view)
+        @mouse_down = false
         return if !plane? || view.model.selection.empty?
 
         model = Sketchup.active_model
@@ -91,9 +106,17 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onMouseMove(_flags, x, y, view)
-        @ip.pick(view, x, y)
-        pick_bounds(view, x, y)
-        pick_plane
+        if @mouse_down
+          @ip.pick(view, x, y, @ip_reference)
+          return if @ip.position == @point
+
+          @normal = @ip.position - @point
+          @tooltip = @ip.tooltip
+        else
+          @ip.pick(view, x, y)
+          pick_bounds(view, x, y)
+          pick_plane
+        end
 
         view.invalidate
       end
