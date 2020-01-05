@@ -39,6 +39,14 @@ module Eneroth
 
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
+      def activate
+        super
+
+        update_status_text
+      end
+
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def deactivate(view)
         super
 
@@ -119,7 +127,7 @@ module Eneroth
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def resume(view)
         view.invalidate
-        ### update_status_text # TODO: Set status text here and on activate.
+        update_status_text
       end
 
       # @api
@@ -129,6 +137,10 @@ module Eneroth
       end
 
       private
+
+      def update_status_text
+        Sketchup.status_text = OB[:status_text]
+      end
 
       def pick_bounds(view, x, y)
         ray = view.pickray(x, y)
