@@ -25,10 +25,9 @@ module Eneroth
         model = Sketchup.active_model
 
         @ip = Sketchup::InputPoint.new
-        @ip_reference = Sketchup::InputPoint.new
+        @ip_direction = Sketchup::InputPoint.new
         @bounds_intersection = nil
 
-        @point = nil
         @normal = nil
         @tooltip = nil
 
@@ -57,15 +56,13 @@ module Eneroth
         end
         if @mouse_down
           view.line_stipple = "-"
-          view.draw(GL_LINES, @ip.position, @point)
+          view.draw(GL_LINES, @ip.position, @ip_direction.position)
           view.line_stipple = ""
         end
 
-        preview_circle(view, @point, @normal) if @normal
-
-        # If point comes from bounds but InputPoint is slightly off due to
-        # inference, no dotted inference lines should be shown.
-        @ip.draw(view) if @point == @ip.position || @mouse_down
+        preview_circle(view, @ip.position, @normal) if plane?
+        @ip.draw(view)
+        @ip_direction.draw(view) if @mouse_down
 
         view.tooltip = @tooltip if @tooltip
       end
@@ -74,7 +71,8 @@ module Eneroth
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def getExtents
         bounds = Sketchup.active_model.bounds
-        bounds.add(@point) if @point
+        bounds.add(@ip.position) if @ip.position
+        bounds.add(@ip_direction.position) if @ip_direction.position
 
         bounds
       end
@@ -83,7 +81,6 @@ module Eneroth
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onLButtonDown(_flags, x, y, view)
         @mouse_down = [x, y]
-        @ip_reference.copy!(@ip)
       end
 
       # @api
@@ -99,7 +96,7 @@ module Eneroth
         model.commit_operation
 
         @preview_lines = ExtractLines.extract_lines(model.selection)
-        @normal = @point = nil
+        @normal = nil
         @bounds_intersection = nil
       end
 
@@ -107,11 +104,11 @@ module Eneroth
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onMouseMove(_flags, x, y, view)
         if @mouse_down
-          @ip.pick(view, x, y, @ip_reference)
-          return if @ip.position == @point
+          @ip_direction.pick(view, x, y, @ip)
+          return if @ip_direction.position == @ip.position
 
-          @normal = @ip.position - @point
-          @tooltip = @ip.tooltip
+          @normal = @ip_direction.position - @ip.position
+          @tooltip = @ip_direction.tooltip
         else
           @ip.pick(view, x, y)
           pick_bounds(view, x, y)
@@ -153,10 +150,9 @@ module Eneroth
         # closest.
         if ip_in_selection? || !bounds_in_front_of_ip?
           @normal = ip_direction
-          @point = @ip.position
           @tooltip = @ip.tooltip
         else
-          @point = @bounds_intersection.position
+          @ip = Sketchup::InputPoint.new(@bounds_intersection.position)
           @normal = @bounds_intersection.normal
           @tooltip = OB[:inference_on_bounds]
         end
@@ -190,7 +186,7 @@ module Eneroth
       end
 
       def transformation
-        plane = Geom::Transformation.new(@point, @normal)
+        plane = Geom::Transformation.new(@ip.position, @normal)
         plane * Geom::Transformation.scaling(1, 1, -1) * plane.inverse
       end
 
