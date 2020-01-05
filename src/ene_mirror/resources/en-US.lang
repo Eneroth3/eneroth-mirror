@@ -4,7 +4,7 @@
     "action_mirror": "Mirror",
     "action_mirror_description": "Mirror entities.",
     "inference_on_bounds": "On Bounds",
-    "status_text": "Click to mirror. Press and drag to set custom plane.",
+    "status_text": "Click to mirror. Press and drag to set custom plane. Ctrl = Toggle Copy.",
     "lang_option": "Language",
     "system_lang_name": "System Default",
     "unlicensed":"%{name} isn't licensed. Do you want to open the Extension Warehouse to acquire a license?\n\nIf the issue persists, please contact SketchUp support directly."

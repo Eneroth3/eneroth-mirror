@@ -33,7 +33,7 @@ module Eneroth
         # mirroring.
         @preview_lines = ExtractLines.extract_lines(model.selection)
 
-        @copy_mode = true
+        @copy_mode = false
         @mouse_down = false
       end
 
@@ -81,6 +81,15 @@ module Eneroth
         bounds.add(@ip_direction.position) if @ip_direction.position
 
         bounds
+      end
+
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
+      def onKeyDown(key, _repeat, _flags, _view)
+        @copy_mode = !@copy_mode if key == COPY_MODIFIER_KEY
+
+        # Don't stop propagation.
+        false
       end
 
       # @api
