@@ -62,12 +62,7 @@ module Eneroth
         @ip.draw(view)
         @ip_direction.draw(view) if @mouse_down
 
-        view.tooltip =
-          if @mouse_down
-            @ip_direction.tooltip
-          else
-            @tooltip_override || @ip.tooltip
-          end
+        view.tooltip = tooltip
       end
 
       # @api
@@ -82,7 +77,7 @@ module Eneroth
 
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
-      def onLButtonDown(_flags, x, y, view)
+      def onLButtonDown(_flags, _x, _y, _view)
         @mouse_down = true
       end
 
@@ -211,6 +206,12 @@ module Eneroth
 
         view.set_color_from_line(ORIGIN, ORIGIN.offset(direction))
         view.draw(GL_LINE_LOOP, points)
+      end
+
+      def tooltip
+        return @ip_direction.tooltip if @mouse_down
+
+        @tooltip_override || @ip.tooltip
       end
     end
   end
