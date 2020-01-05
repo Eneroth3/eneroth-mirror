@@ -19,6 +19,12 @@ module Eneroth
       # Segment count for plane preview.
       CIRCLE_SEGMENTS = 48
 
+      # Native Move
+      CURSOR_MOVE = 641
+
+      # Native Move Copy
+      CURSOR_COPY = 642
+
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def initialize
@@ -42,6 +48,7 @@ module Eneroth
       def activate
         super
 
+        onSetCursor
         update_status_text
       end
 
@@ -87,6 +94,7 @@ module Eneroth
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onKeyDown(key, _repeat, _flags, _view)
         @copy_mode = !@copy_mode if key == COPY_MODIFIER_KEY
+        onSetCursor
 
         # Don't stop propagation.
         false
@@ -113,6 +121,12 @@ module Eneroth
         @preview_lines = ExtractLines.extract_lines(model.selection)
         @normal = nil
         @bounds_intersection = nil
+      end
+
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
+      def onSetCursor
+        UI.set_cursor(@copy_mode ? CURSOR_COPY : CURSOR_MOVE)
       end
 
       # @api
