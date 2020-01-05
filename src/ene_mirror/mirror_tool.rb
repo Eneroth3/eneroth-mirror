@@ -27,9 +27,7 @@ module Eneroth
         @ip = Sketchup::InputPoint.new
         @ip_direction = Sketchup::InputPoint.new
         @bounds_intersection = nil
-
         @normal = nil
-        @tooltip = nil
 
         # Flat array of points making up lines to preview, without any
         # mirroring.
@@ -64,7 +62,12 @@ module Eneroth
         @ip.draw(view)
         @ip_direction.draw(view) if @mouse_down
 
-        view.tooltip = @tooltip if @tooltip
+        view.tooltip =
+          if @mouse_down
+            @ip_direction.tooltip
+          else
+            @tooltip_override || @ip.tooltip
+          end
       end
 
       # @api
@@ -80,7 +83,7 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onLButtonDown(_flags, x, y, view)
-        @mouse_down = [x, y]
+        @mouse_down = true
       end
 
       # @api
@@ -108,7 +111,6 @@ module Eneroth
           return if @ip_direction.position == @ip.position
 
           @normal = @ip_direction.position - @ip.position
-          @tooltip = @ip_direction.tooltip
         else
           @ip.pick(view, x, y)
           pick_bounds(view, x, y)
@@ -149,12 +151,14 @@ module Eneroth
         # Then InputPoint or point on bounds are used depending on which is
         # closest.
         if ip_in_selection? || !bounds_in_front_of_ip?
+          # From InputPoint.
           @normal = ip_direction
-          @tooltip = @ip.tooltip
+          @tooltip_override = nil
         else
+          # From Bounds.
           @ip = Sketchup::InputPoint.new(@bounds_intersection.position)
           @normal = @bounds_intersection.normal
-          @tooltip = OB[:inference_on_bounds]
+          @tooltip_override = OB[:inference_on_bounds]
         end
       end
 
