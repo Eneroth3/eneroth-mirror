@@ -12,9 +12,14 @@ module Eneroth
 
     # Tool for mirroring selection around a plane.
     class MirrorTool < Tool
+      # Radius of plane preview in logical pixels.
       CIRCLE_RADIUS = 50
+
+      # Segment count for plane preview.
       CIRCLE_SEGMENTS = 48
 
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def initialize
         @ip = Sketchup::InputPoint.new
         @bounds_intersection = nil
@@ -24,12 +29,16 @@ module Eneroth
         @tooltip = nil
       end
 
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def deactivate(view)
         super
 
         view.invalidate
       end
 
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def draw(view)
         preview_circle(view, @point, @normal) if @normal
 
@@ -40,6 +49,8 @@ module Eneroth
         view.tooltip = @tooltip if @tooltip
       end
 
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def getExtents
         bounds = Sketchup.active_model.bounds
         bounds.add(@point) if @point
@@ -47,16 +58,34 @@ module Eneroth
         bounds
       end
 
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onLButtonDown(_flags, _x, _y, view)
         return unless @point
+
         view.model.active_entities.add_cpoint(@point)
       end
 
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onMouseMove(_flags, x, y, view)
         @ip.pick(view, x, y)
         pick_bounds(view, x, y)
         pick_plane
 
+        view.invalidate
+      end
+
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
+      def resume(view)
+        view.invalidate
+        ### update_status_text # TODO: Set status text here and on activate.
+      end
+
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/Tool.html
+      def suspend(view)
         view.invalidate
       end
 
@@ -116,11 +145,12 @@ module Eneroth
         [Sketchup::Group, Sketchup::ComponentInstance].include?(entity.class)
       end
 
-      def preview_circle(view, position, direction)
-        points = CIRCLE_SEGMENTS.times.map { |n|
-          a = 2*Math::PI/CIRCLE_SEGMENTS*n
-          Geom::Point3d.new(Math.cos(a)*CIRCLE_RADIUS, Math.sin(a)*CIRCLE_RADIUS, 0)
-        }
+      def preview_circle(view, position, direction, radius = CIRCLE_RADIUS)
+        points = CIRCLE_SEGMENTS.times.map do |n|
+          a = 2 * Math::PI / CIRCLE_SEGMENTS * n
+
+          Geom::Point3d.new(Math.cos(a) * radius, Math.sin(a) * radius, 0)
+        end
         transformation =
           Geom::Transformation.new(position, direction) *
           Geom::Transformation.scaling(view.pixels_to_model(1, position))

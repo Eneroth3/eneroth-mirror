@@ -14,7 +14,10 @@ module Eneroth
     #   BoundsHelper.corners(instance.bounds)
     #
     #   # Corners of visible selection bounds for an instance.
-    #   BoundsHelper.corners(instance.definition.bounds, instance.transformation)
+    #   BoundsHelper.corners(
+    #     instance.definition.bounds,
+    #     instance.transformation
+    #   )
     module BoundsHelper
       # Represents the intersection between a line and a bounding box.
       #
@@ -32,15 +35,15 @@ module Eneroth
       Intersection = Struct.new(:position, :normal, :distance, :side)
 
       # List all 8 corners of the bounding box. The order is
-      # bottom front left, bottom front right, bottom back left, bottom back right,
-      # top front left, top front right, top back left, top back right.
+      # bottom front left, bottom front right, bottom back left, bottom back
+      # right, top front left, top front right, top back left, top back right.
       #
       # @param bounds [Geom::BoundingBox]
       # @param transformation [Geom::Transformation]
       #
       # @return [Array<Geom::Point3d>]
-      def self.corners(bounds, tranformation = IDENTITY)
-        Array.new(8) { |n| bounds.corner(n).transform(tranformation) }
+      def self.corners(bounds, transformation = IDENTITY)
+        Array.new(8) { |n| bounds.corner(n).transform(transformation) }
       end
 
       # List all 12 lines of the bounding box.
@@ -91,11 +94,10 @@ module Eneroth
       # List the 6 normals of the bounds.
       # The order is right, back, top, left, front, bottom.
       #
-      # @param bounds [Geom::BoundingBox]
       # @param transformation [Geom::Transformation]
       #
       # @return [Array<Geom::Vector3d>]
-      def self.normals(bounds, transformation = IDENTITY)
+      def self.normals(transformation = IDENTITY)
         [
           MyGeom.transform_as_normal(X_AXIS, transformation),
           MyGeom.transform_as_normal(Y_AXIS, transformation),
@@ -115,7 +117,7 @@ module Eneroth
       # @return [Array<Array<(Geom::Point3d, Geom::Vector3d)>>]
       def self.planes(bounds, transformation = IDENTITY)
         corners = corners(bounds, transformation)
-        normals = normals(bounds, transformation)
+        normals = normals(transformation)
 
         [
           [corners[7], normals[0]],
@@ -123,7 +125,7 @@ module Eneroth
           [corners[7], normals[2]],
           [corners[0], normals[3]],
           [corners[0], normals[4]],
-          [corners[0], normals[5]],
+          [corners[0], normals[5]]
         ]
       end
 
@@ -135,11 +137,11 @@ module Eneroth
       #
       # @return [Intersection]
       def self.intersect_line(line, bounds, transformation = IDENTITY)
-        # REVIEW: Use struct for return values?
-
         line_transformation = Geom::Transformation.new(*line)
         sides = sides(bounds, line_transformation.inverse * transformation)
-        index = sides.find_index { |s| facing?(s) && Geom.point_in_polygon_2D(ORIGIN, s, true) }
+        index = sides.find_index do |s|
+          facing?(s) && Geom.point_in_polygon_2D(ORIGIN, s, true)
+        end
         return unless index
 
         plane = planes(bounds, transformation)[index]
@@ -156,10 +158,9 @@ module Eneroth
       # Private
 
       def self.facing?(corners)
-        MyGeom.polygon_normal(corners).z < 0
+        MyGeom.polygon_normal(corners).z.negative?
       end
       private_class_method :facing?
     end
   end
 end
-
