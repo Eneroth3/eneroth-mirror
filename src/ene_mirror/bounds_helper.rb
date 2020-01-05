@@ -137,11 +137,11 @@ module Eneroth
       #
       # @return [Intersection]
       def self.intersect_line(line, bounds, transformation = IDENTITY)
-        line_transformation = Geom::Transformation.new(*line)
-        sides = sides(bounds, line_transformation.inverse * transformation)
-        index = sides.find_index do |s|
-          facing?(s) && Geom.point_in_polygon_2D(ORIGIN, s, true)
-        end
+        line_space = Geom::Transformation.new(*line)
+        bounds_line_space = line_space.inverse * transformation
+        flipped = MyGeom.flipped?(bounds_line_space)
+        sides = sides(bounds, bounds_line_space)
+        index = sides.find_index { |s| within?(s, flipped) }
         return unless index
 
         plane = planes(bounds, transformation)[index]
@@ -150,12 +150,19 @@ module Eneroth
         Intersection.new(
           intersection,
           plane[1],
-          intersection.transform(line_transformation.inverse).z,
+          intersection.transform(line_space.inverse).z,
           index
         )
       end
 
       # Private
+
+      def self.within?(corners, flipped)
+        return false if facing?(corners) == flipped
+
+        Geom.point_in_polygon_2D(ORIGIN, corners, true)
+      end
+      private_class_method :within?
 
       def self.facing?(corners)
         MyGeom.polygon_normal(corners).z.negative?

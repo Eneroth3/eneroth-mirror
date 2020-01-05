@@ -4,6 +4,17 @@ module Eneroth
   module Mirror
     # Geometric functionality.
     module MyGeom
+      # Test if transformation is flipped (mirrored).
+      #
+      # @param transformation [Geom::Transformation]
+      #
+      # @return [Boolean]
+      def self.flipped?(transformation)
+        product = transformation.xaxis * transformation.yaxis
+
+        (product % transformation.zaxis).negative?
+      end
+
       # Find normal vector from an array of points representing a polygon.
       #
       # @param points [Array<Geom::Point3d>]
@@ -35,8 +46,9 @@ module Eneroth
       def self.transform_as_normal(normal, transformation)
         tangent = normal.axes[0].transform(transformation)
         bi_tangent = normal.axes[1].transform(transformation)
+        normal = (tangent * bi_tangent).normalize
 
-        (tangent * bi_tangent).normalize
+        flipped?(transformation) ? normal.reverse : normal
       end
     end
   end
