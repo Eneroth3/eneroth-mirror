@@ -169,9 +169,11 @@ module Eneroth
       # Used to pick an entity to mirror when not using pre-selection.
       def pick_selection(model)
         model.selection.clear
-        # TODO: Only pick if in active context.
-        # Move code from Visual Merge to RefinedInputPoint?
-        model.selection.add(@ip.instance) if @ip.instance
+        hovered = (@ip.instance_path.to_a & model.active_entities.to_a).first
+        return unless hovered
+        return unless instance?(hovered)
+
+        model.selection.add(hovered)
         @preview_lines = ExtractLines.extract_lines(model.selection)
       end
 
