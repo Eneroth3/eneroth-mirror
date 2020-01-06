@@ -136,21 +136,12 @@ module Eneroth
         @pre_selection = false if view.model.selection.empty?
 
         if @mouse_down
-          @ip_direction.pick(view, x, y, @ip)
-          return if @ip_direction.position == @ip.position
-
-          @normal = @ip_direction.position - @ip.position
+          pick_direction(view, x, y)
         else
           @ip.pick(view, x, y)
           pick_bounds(view, x, y)
           pick_plane
-          unless @pre_selection
-            view.model.selection.clear
-            # TODO: Only pick if in active context.
-            # Move code from Visual Merge to RefinedInputPoint?
-            view.model.selection.add(@ip.instance) if @ip.instance
-            @preview_lines = ExtractLines.extract_lines(view.model.selection)
-          end
+          pick_selection(view.model) unless @pre_selection
         end
 
         view.invalidate
@@ -175,6 +166,15 @@ module Eneroth
         Sketchup.status_text = OB[:status_text]
       end
 
+      # Used to pick an entity to mirror when not using pre-selection.
+      def pick_selection(model)
+        model.selection.clear
+        # TODO: Only pick if in active context.
+        # Move code from Visual Merge to RefinedInputPoint?
+        model.selection.add(@ip.instance) if @ip.instance
+        @preview_lines = ExtractLines.extract_lines(model.selection)
+      end
+
       def pick_bounds(view, x, y)
         ray = view.pickray(x, y)
         intersections = view.model.selection.map do |instance|
@@ -186,6 +186,7 @@ module Eneroth
         @bounds_intersection = intersections.compact.min_by(&:distance)
       end
 
+      # Used to pick mirror plane from hovered entity.
       def pick_plane
         # InputPoint in selection has precedence.
         # Then InputPoint or point on bounds are used depending on which is
@@ -223,6 +224,13 @@ module Eneroth
         eye = Sketchup.active_model.active_view.camera.eye
 
         @bounds_intersection.position.distance(eye) < @ip.position.distance(eye)
+      end
+
+      # Used to pick custom direction when holding down mouse.
+      def pick_direction(view, x, y)
+        @ip_direction.pick(view, x, y, @ip)
+        direction = @ip_direction.position - @ip.position
+        @normal = direction if direction.valid?
       end
 
       def plane?
