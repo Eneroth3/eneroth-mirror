@@ -25,16 +25,10 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def initialize
-        model = Sketchup.active_model
-
         @ip = Sketchup::InputPoint.new
         @ip_direction = Sketchup::InputPoint.new
         @bounds_intersection = nil
         @normal = nil
-
-        # Flat array of points making up lines to preview, without any
-        # mirroring.
-        @preview_lines = ExtractLines.extract_lines(model.selection)
 
         @copy_mode = false
         @mouse_down = false
@@ -44,6 +38,14 @@ module Eneroth
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def activate
         super
+
+        model = Sketchup.active_model
+
+        @pre_selection = !model.selection.empty?
+
+        # Flat array of points making up lines to preview, without any
+        # mirroring.
+        @preview_lines = ExtractLines.extract_lines(model.selection)
 
         onSetCursor
         update_status_text
@@ -129,6 +131,10 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onMouseMove(_flags, x, y, view)
+        # If selection has been emptied, e.g. from undo or the erase command,
+        # revert to pick phase.
+        @pre_selection = false if view.model.selection.empty?
+
         if @mouse_down
           @ip_direction.pick(view, x, y, @ip)
           return if @ip_direction.position == @ip.position
@@ -138,6 +144,13 @@ module Eneroth
           @ip.pick(view, x, y)
           pick_bounds(view, x, y)
           pick_plane
+          unless @pre_selection
+            view.model.selection.clear
+            # TODO: Only pick if in active context.
+            # Move code from Visual Merge to RefinedInputPoint?
+            view.model.selection.add(@ip.instance) if @ip.instance
+            @preview_lines = ExtractLines.extract_lines(view.model.selection)
+          end
         end
 
         view.invalidate
