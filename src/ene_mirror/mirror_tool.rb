@@ -114,6 +114,7 @@ module Eneroth
         model = Sketchup.active_model
         model.start_operation(OB[:action_mirror], true)
         added = CopyEntities.move(transformation, model.selection, @copy_mode)
+        added.reject!(&:deleted?)
         model.selection.add(added)
         model.commit_operation
 
@@ -171,7 +172,6 @@ module Eneroth
         model.selection.clear
         hovered = (@ip.instance_path.to_a & model.active_entities.to_a).first
         return unless hovered
-        return unless instance?(hovered)
 
         model.selection.add(hovered)
         @preview_lines = ExtractLines.extract_lines(model.selection)
