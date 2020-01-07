@@ -67,6 +67,7 @@ module Eneroth
           view.draw(GL_LINES, @preview_lines.map { |pt| pt.transform(tr) })
         end
         if @mouse_down
+          view.set_color_from_line(@ip.position, @ip_direction.position)
           view.line_stipple = "-"
           view.draw(GL_LINES, @ip.position, @ip_direction.position)
           view.line_stipple = ""
@@ -159,6 +160,18 @@ module Eneroth
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def suspend(view)
         view.invalidate
+      end
+
+      # @api
+      # @see https://extensions.sketchup.com/en/content/eneroth-tool-memory
+      def ene_tool_cycler_name
+        OB["action_mirror"]
+      end
+
+      # @api
+      # @see https://extensions.sketchup.com/en/content/eneroth-tool-memory
+      def ene_tool_cycler_icon
+        File.join(PLUGIN_ROOT, "images", "mirror.svg")
       end
 
       private
