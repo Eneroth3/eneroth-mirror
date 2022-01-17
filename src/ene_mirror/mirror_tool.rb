@@ -80,6 +80,9 @@ module Eneroth
         view.tooltip = tooltip
       end
 
+      # TODO: Instructor
+      # TODO: Fix undo previewing wrong content.
+
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def getExtents
