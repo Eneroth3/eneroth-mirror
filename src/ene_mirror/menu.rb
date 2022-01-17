@@ -63,28 +63,6 @@ module Eneroth
       dlg.show
     end
 
-    # Check if Extension is licensed.
-    #
-    # This check is unsafe and only used for user feedback. The method can be
-    # overridden. Additional checks with hardcoded extension IDs are done in
-    # the business logic.
-    #
-    # @return [Boolean]
-    def self.licensed?
-      # TODO: Replace id.
-      # TODO: Add additional licensing check elsewhere.
-      identifier = "6b8d9d0f-3f8b-4101-9e0f-37dbf4372339"
-      license = Sketchup::Licensing.get_extension_license(identifier)
-      return true if license.licensed?
-
-      message = OB["unlicensed", name: EXTENSION.name]
-      return false unless UI.messagebox(message, MB_YESNO) == IDYES
-
-      open_ew(EW_URL_ID)
-
-      false
-    end
-
     unless @loaded
       @loaded = true
 
@@ -92,7 +70,7 @@ module Eneroth
         OB[:action_mirror],
         OB[:action_mirror_description],
         "#{PLUGIN_ROOT}/images/mirror"
-      ) { MirrorTool.activate if licensed? }
+      ) { MirrorTool.activate }
       command_mirror.set_validation_proc { MirrorTool.command_state }
 
       menu = UI.menu("Plugins").add_submenu(EXTENSION.name)
