@@ -43,9 +43,10 @@ module Eneroth
         @copy_mode = false
         @mouse_down = false
 
-        # Corners for the Flip X, Flip Y and Flip Z handles.
+        # Corners for the X, Y and Z flip handles
         @handle_corners = []
-
+        # Planes for the X, Y and Z flip handles
+        @handle_planes = []
         # Currently hovered handle. 0 for X, 1 for Y, 2 for Z, nil for none.
         @hovered_handle = nil
       end
@@ -244,6 +245,7 @@ module Eneroth
       # Set up the flip handles around the model selection.
       def set_up_handles(view)
         @handle_corners = []
+        @handle_planes = []
 
         # TODO: Show handles on the side towards the camera
         bounds = selection_bounds(view.model.selection)
@@ -254,17 +256,23 @@ module Eneroth
 
         # X side handle
         handle_center = bounds_center.offset(bounds_tr.xaxis, bounds.width / 2 + spacing)
-        @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.yaxis, FLIP_SIDE)
+        handle_normal = bounds_tr.yaxis
+        @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
+        @handle_planes << [handle_center, handle_normal]
 
         # Y side handle
+        handle_normal = bounds_tr.zaxis
         # bounds.height = the bounds depth
         handle_center = bounds_center.offset(bounds_tr.yaxis, bounds.height / 2 + spacing)
-        @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.zaxis, FLIP_SIDE)
+        @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
+        @handle_planes << [handle_center, handle_normal]
 
         # Z side handle
+        handle_normal = bounds_tr.xaxis
         # bounds.depth = the bounds height
         handle_center = bounds_center.offset(bounds_tr.zaxis, bounds.depth / 2 + spacing)
-        @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.xaxis, FLIP_SIDE)
+        @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
+        @handle_planes << [handle_center, handle_normal]
       end
 
       # Used to pick mirror plane from hovered entity on mouse move.
@@ -276,10 +284,8 @@ module Eneroth
           next unless Geom.point_in_polygon_2D([x, y, 0], screen_points, true)
 
           @hovered_handle = index
-          # OPTIMIZE: Store all 3 flip planes instead of taking it from the
-          # visual handle.
-          @normal = MyGeom.polygon_normal(corners)
-          @ip = Sketchup::InputPoint.new(corners.first)
+          @normal = @handle_planes[index][1]
+          @ip = Sketchup::InputPoint.new(@handle_planes[index][0])
           # TODO: Correct per axis. Translate.
           @tooltip_override = "Flip Along Red"
 
