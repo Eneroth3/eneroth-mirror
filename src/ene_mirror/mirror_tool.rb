@@ -204,7 +204,7 @@ module Eneroth
         else
           @ip.pick(view, x, y)
           pick_bounds(view, x, y)
-          pick_plane
+          pick_plane(view, x, y)
           pick_selection(view.model) unless @pre_selection
         end
 
@@ -265,11 +265,25 @@ module Eneroth
       end
 
       # Used to pick mirror plane from hovered entity on mouse move.
-      def pick_plane
+      def pick_plane(view, x, y)
+        # Flip planes has precedence over all else.
+        @handle_corners.each do |corners|
+          screen_points = corners.map { |pt| view.screen_coords(pt) }
+          next unless Geom.point_in_polygon_2D([x, y, 0], screen_points, true)
+
+          # OPTIMIZE: Store all 3 flip planes instead of taking it from the
+          # visual handle.
+          @normal = MyGeom.polygon_normal(corners)
+          @ip = Sketchup::InputPoint.new(corners.first)
+          # TODO: Correct per axis. Translate.
+          @tooltip_override = "Flip Along Red"
+
+          return
+        end
+
         # InputPoint in selection has precedence.
         # Then InputPoint or point on bounds are used depending on which is
-        # closest.
-        # TODO: Pick from handles.
+        # ahead.
         if ip_in_selection? || !bounds_in_front_of_ip?
           # From InputPoint.
           @normal = ip_direction
