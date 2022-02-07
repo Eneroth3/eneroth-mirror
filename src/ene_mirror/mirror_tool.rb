@@ -247,30 +247,43 @@ module Eneroth
         @handle_corners = []
         @handle_planes = []
 
-        # TODO: Show handles on the side towards the camera
         bounds = selection_bounds(view.model.selection)
         bounds_tr = selection_bounds_transformation(view.model.selection)
         bounds_center = bounds.center.transform(bounds_tr)
-        # From bounds to center of each handle
+        # From face of bounds to center of each handle
         spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
+        
+        cam_direction = view.camera.direction
+        
+        # REVIEW: Set up dynamically in a loop.
+        # Use helper methods to get bounds side length and transformation axis by index.
 
         # X side handle
-        handle_center = bounds_center.offset(bounds_tr.xaxis, bounds.width / 2 + spacing)
+        # Flip Along Y
         handle_normal = bounds_tr.yaxis
+        handle_offset = bounds_tr.xaxis.tap { |v| v.length = bounds.width / 2 + spacing }
+        handle_offset.reverse! if handle_offset % cam_direction > 0
+        handle_center = bounds_center.offset(handle_offset)
         @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
         @handle_planes << [handle_center, handle_normal]
 
         # Y side handle
+        # Flip Along Z
         handle_normal = bounds_tr.zaxis
         # bounds.height = the bounds depth
-        handle_center = bounds_center.offset(bounds_tr.yaxis, bounds.height / 2 + spacing)
+        handle_offset = bounds_tr.yaxis.tap { |v| v.length = bounds.height / 2 + spacing }
+        handle_offset.reverse! if handle_offset % cam_direction > 0
+        handle_center = bounds_center.offset(handle_offset)
         @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
         @handle_planes << [handle_center, handle_normal]
 
         # Z side handle
+        # Flip Along X
         handle_normal = bounds_tr.xaxis
         # bounds.depth = the bounds height
-        handle_center = bounds_center.offset(bounds_tr.zaxis, bounds.depth / 2 + spacing)
+        handle_offset = bounds_tr.zaxis.tap { |v| v.length = bounds.depth / 2 + spacing }
+        handle_offset.reverse! if handle_offset % cam_direction > 0
+        handle_center = bounds_center.offset(handle_offset)
         @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
         @handle_planes << [handle_center, handle_normal]
       end
