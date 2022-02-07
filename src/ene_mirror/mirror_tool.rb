@@ -23,6 +23,7 @@ module Eneroth
       FLIP_SPACING = 10
 
       FLIP_COLOR = Sketchup::Color.new(0, 255, 0)
+      FLIP_HOVER_COLOR = Sketchup::Color.new(255, 0, 0)
       FLIP_EDGE_COLOR = Sketchup::Color.new(0, 0, 0)
 
       # Native Move
@@ -44,6 +45,9 @@ module Eneroth
 
         # Corners for the Flip X, Flip Y and Flip Z handles.
         @handle_corners = []
+        
+        # Currently hovered handle. 0 for X, 1 for Y, 2 for Z, nil for none.
+        @hovered_handle = nil
       end
 
       # @api
@@ -97,7 +101,6 @@ module Eneroth
 
           # TODO: Show handles on the side towards the camera
           # TODO: Mirror around handle when pressed.
-          # TODO: Make handle red when hovered.
           # OPTIMIZE: Cache bounds
           bounds = selection_bounds(view.model.selection)
           bounds_tr = selection_bounds_transformation(view.model.selection)
@@ -121,8 +124,8 @@ module Eneroth
           @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.xaxis, FLIP_SIDE)
 
 
-          @handle_corners.each do |points|
-            view.drawing_color = FLIP_COLOR
+          @handle_corners.each_with_index do |points, index|
+            view.drawing_color = @hovered_handle == index ? FLIP_HOVER_COLOR : FLIP_COLOR
             view.draw(GL_POLYGON, points)
             # TODO: Draw stroke slightly in front to stop Z-fighting
             view.drawing_color = FLIP_EDGE_COLOR
@@ -131,7 +134,7 @@ module Eneroth
         end
 
         # Custom mirror plane
-        draw_mirror_plane(view, @ip.position, @normal) if plane?
+        draw_mirror_plane(view, @ip.position, @normal) if plane? && !@hovered_handle
 
         @ip.draw(view)
         @ip_direction.draw(view) if @mouse_down
@@ -267,10 +270,12 @@ module Eneroth
       # Used to pick mirror plane from hovered entity on mouse move.
       def pick_plane(view, x, y)
         # Flip planes has precedence over all else.
-        @handle_corners.each do |corners|
+        @hovered_handle = nil
+        @handle_corners.each_with_index do |corners, index|
           screen_points = corners.map { |pt| view.screen_coords(pt) }
           next unless Geom.point_in_polygon_2D([x, y, 0], screen_points, true)
 
+          @hovered_handle = index
           # OPTIMIZE: Store all 3 flip planes instead of taking it from the
           # visual handle.
           @normal = MyGeom.polygon_normal(corners)
