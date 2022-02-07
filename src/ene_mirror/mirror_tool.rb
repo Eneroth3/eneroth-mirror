@@ -41,6 +41,9 @@ module Eneroth
 
         @copy_mode = false
         @mouse_down = false
+
+        # Corners for the Flip X, Flip Y and Flip Z handles.
+        @handle_corners = []
       end
 
       # @api
@@ -88,6 +91,10 @@ module Eneroth
 
         # Flip handles
         if @pre_selection
+          # TODO: Don't set this in draw. Draw is for drawing, not driving
+          # instance variables.
+          @handle_corners = []
+
           # TODO: Show handles on the side towards the camera
           # TODO: Mirror around handle when pressed.
           # TODO: Make handle red when hovered.
@@ -101,17 +108,26 @@ module Eneroth
 
           # X side handle
           handle_center = bounds_center.offset(bounds_tr.xaxis, bounds.width / 2 + spacing)
-          draw_plane(view, handle_center, bounds_tr.yaxis, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
+          @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.yaxis, FLIP_SIDE)
 
           # Y side handle
           # bounds.height = the bounds depth
           handle_center = bounds_center.offset(bounds_tr.yaxis, bounds.height / 2 + spacing)
-          draw_plane(view, handle_center, bounds_tr.zaxis, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
+          @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.zaxis, FLIP_SIDE)
 
           # Z side handle
           # bounds.depth = the bounds height
           handle_center = bounds_center.offset(bounds_tr.zaxis, bounds.depth / 2 + spacing)
-          draw_plane(view, handle_center, bounds_tr.xaxis, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
+          @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.xaxis, FLIP_SIDE)
+
+
+          @handle_corners.each do |points|
+            view.drawing_color = FLIP_COLOR
+            view.draw(GL_POLYGON, points)
+            # TODO: Draw stroke slightly in front to stop Z-fighting
+            view.drawing_color = FLIP_EDGE_COLOR
+            view.draw(GL_LINE_LOOP, points)
+          end
         end
 
         # Custom mirror plane
@@ -241,17 +257,19 @@ module Eneroth
         intersections = view.model.selection.map do |instance|
           next unless instance?(instance)
 
+          # REVIEW: Move my selection bounds thingy to BoundsHelper?
           BoundsHelper.intersect_line(ray, instance.definition.bounds,
                                       instance.transformation)
         end
         @bounds_intersection = intersections.compact.min_by(&:distance)
       end
 
-      # Used to pick mirror plane from hovered entity.
+      # Used to pick mirror plane from hovered entity on mouse move.
       def pick_plane
         # InputPoint in selection has precedence.
         # Then InputPoint or point on bounds are used depending on which is
         # closest.
+        # TODO: Pick from handles.
         if ip_in_selection? || !bounds_in_front_of_ip?
           # From InputPoint.
           @normal = ip_direction
@@ -349,19 +367,6 @@ module Eneroth
         points.each { |pt| pt.transform!(transformation) }
 
         points
-      end
-
-      # General method for drawing a plane.
-      #
-      # @param side [Numeric] Size in logical pixels at plane center.
-      def draw_plane(view, position, normal, side, fill_color, stroke_color)
-        # TODO: Handle rotation around normal.
-        points = calculate_plane_corners(view, position, normal, side)
-        view.drawing_color = fill_color
-        view.draw(GL_POLYGON, points)
-        # TODO: Draw stroke slightly in front to stop Z-fighting
-        view.drawing_color = stroke_color
-        view.draw(GL_LINE_LOOP, points)
       end
 
       def draw_mirror_plane(view, position, normal)
