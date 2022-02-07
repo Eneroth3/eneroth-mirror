@@ -7,6 +7,9 @@
     "status_text": "Click to mirror. Press and drag to set custom plane. Ctrl = Toggle Copy.",
     "lang_option": "Language",
     "system_lang_name": "System Default",
-    "unlicensed":"%{name} isn't licensed. Do you want to open the Extension Warehouse to acquire a license?\n\nIf the issue persists, please contact SketchUp support directly."
+    "unlicensed":"%{name} isn't licensed. Do you want to open the Extension Warehouse to acquire a license?\n\nIf the issue persists, please contact SketchUp support directly.",
+    "flip_along_red":"Flip Along Red",
+    "flip_along_green":"Flip Along Green",
+    "flip_along_blue":"Flip Along Blue"
   }
 }

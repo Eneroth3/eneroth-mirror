@@ -7,6 +7,9 @@
     "status_text": "Klicka för att spegla. Tryck och dra för att välja plan. Ctrl = Toggla kopia.",
     "lang_option": "Språk",
     "system_lang_name": "Systemstandard",
-    "unlicensed":"%{name} saknar en licens. Vill du öppna Extension Warehouse för att skaffa en licens?\n\nOm problemet kvarstår, vänligen kontakta SketchUp-supporten direkt."
+    "unlicensed":"%{name} saknar en licens. Vill du öppna Extension Warehouse för att skaffa en licens?\n\nOm problemet kvarstår, vänligen kontakta SketchUp-supporten direkt.",
+    "flip_along_red":"Spegla runt röd",
+    "flip_along_green":"Spegla runt grön",
+    "flip_along_blue":"Spegla runt blå"
   }
 }

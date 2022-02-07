@@ -291,8 +291,9 @@ module Eneroth
           @hovered_handle = index
           @normal = @handle_planes[index][1]
           @ip = Sketchup::InputPoint.new(@handle_planes[index][0])
-          # TODO: Correct per axis. Translate.
-          @tooltip_override = "Flip Along Red"
+          axis_name = ["red", "green", "blue"][index]
+          # TODO: Distinguish "Component's Red" from model "Red".
+          @tooltip_override = OB["flip_along_#{axis_name}"]
 
           return
         end
