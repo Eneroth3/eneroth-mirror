@@ -45,7 +45,7 @@ module Eneroth
 
         # Corners for the Flip X, Flip Y and Flip Z handles.
         @handle_corners = []
-        
+
         # Currently hovered handle. 0 for X, 1 for Y, 2 for Z, nil for none.
         @hovered_handle = nil
       end
@@ -58,6 +58,8 @@ module Eneroth
         model = Sketchup.active_model
 
         @pre_selection = !model.selection.empty?
+
+        set_up_handles(model.active_view) if @pre_selection
 
         # Flat array of points making up lines to preview, without any
         # mirroring.
@@ -95,34 +97,6 @@ module Eneroth
 
         # Flip handles
         if @pre_selection
-          # TODO: Don't set this in draw. Draw is for drawing, not driving
-          # instance variables.
-          @handle_corners = []
-
-          # TODO: Show handles on the side towards the camera
-          # OPTIMIZE: Cache bounds
-          bounds = selection_bounds(view.model.selection)
-          bounds_tr = selection_bounds_transformation(view.model.selection)
-          bounds_center = bounds.center.transform(bounds_tr)
-          # From bounds to center of each handle
-          spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
-          handle_side = view.pixels_to_model(FLIP_SIDE, bounds_center)
-
-          # X side handle
-          handle_center = bounds_center.offset(bounds_tr.xaxis, bounds.width / 2 + spacing)
-          @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.yaxis, FLIP_SIDE)
-
-          # Y side handle
-          # bounds.height = the bounds depth
-          handle_center = bounds_center.offset(bounds_tr.yaxis, bounds.height / 2 + spacing)
-          @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.zaxis, FLIP_SIDE)
-
-          # Z side handle
-          # bounds.depth = the bounds height
-          handle_center = bounds_center.offset(bounds_tr.zaxis, bounds.depth / 2 + spacing)
-          @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.xaxis, FLIP_SIDE)
-
-
           @handle_corners.each_with_index do |points, index|
             view.drawing_color = @hovered_handle == index ? FLIP_HOVER_COLOR : FLIP_COLOR
             view.draw(GL_POLYGON, points)
@@ -216,6 +190,7 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def resume(view)
+        set_up_handles(view) if @pre_selection
         view.invalidate
         update_status_text
       end
@@ -264,6 +239,32 @@ module Eneroth
                                       instance.transformation)
         end
         @bounds_intersection = intersections.compact.min_by(&:distance)
+      end
+
+      # Set up the flip handles around the model selection.
+      def set_up_handles(view)
+        @handle_corners = []
+
+        # TODO: Show handles on the side towards the camera
+        bounds = selection_bounds(view.model.selection)
+        bounds_tr = selection_bounds_transformation(view.model.selection)
+        bounds_center = bounds.center.transform(bounds_tr)
+        # From bounds to center of each handle
+        spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
+
+        # X side handle
+        handle_center = bounds_center.offset(bounds_tr.xaxis, bounds.width / 2 + spacing)
+        @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.yaxis, FLIP_SIDE)
+
+        # Y side handle
+        # bounds.height = the bounds depth
+        handle_center = bounds_center.offset(bounds_tr.yaxis, bounds.height / 2 + spacing)
+        @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.zaxis, FLIP_SIDE)
+
+        # Z side handle
+        # bounds.depth = the bounds height
+        handle_center = bounds_center.offset(bounds_tr.zaxis, bounds.depth / 2 + spacing)
+        @handle_corners << calculate_plane_corners(view, handle_center, bounds_tr.xaxis, FLIP_SIDE)
       end
 
       # Used to pick mirror plane from hovered entity on mouse move.
