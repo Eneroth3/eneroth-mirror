@@ -2,7 +2,7 @@
   "name": {"native":"Svenska"},
   "dictionary": {
     "action_mirror": "Spegla",
-    "action_mirror_description": "Spegla object.",
+    "action_mirror_description": "Spegla object runt mitt eller valfritt plan.",
     "inference_on_bounds": "På avgränsningsbox",
     "status_text": "Klicka för att spegla. Tryck och dra för att välja plan. Ctrl = Toggla kopia.",
     "lang_option": "Språk",
