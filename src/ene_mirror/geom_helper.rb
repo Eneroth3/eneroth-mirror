@@ -3,7 +3,7 @@
 module Eneroth
   module Mirror
     # Geometric functionality.
-    module MyGeom
+    module GeomHelper
       # Test if transformation is flipped (mirrored).
       #
       # @param transformation [Geom::Transformation]

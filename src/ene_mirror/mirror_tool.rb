@@ -4,10 +4,11 @@ module Eneroth
   module Mirror
     Sketchup.require "#{PLUGIN_ROOT}/vendor/refined_input_point"
     Sketchup.require "#{PLUGIN_ROOT}/bounds_helper"
+    Sketchup.require "#{PLUGIN_ROOT}/entity_helper"
     Sketchup.require "#{PLUGIN_ROOT}/tool"
     Sketchup.require "#{PLUGIN_ROOT}/extract_lines"
     Sketchup.require "#{PLUGIN_ROOT}/copy_entities"
-    Sketchup.require "#{PLUGIN_ROOT}/my_geom"
+    Sketchup.require "#{PLUGIN_ROOT}/geom_helper"
 
     using RefinedInputPoint
 
@@ -149,18 +150,7 @@ module Eneroth
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def onLButtonUp(_flags, _x, _y, view)
         @mouse_down = false
-        return if !plane? || view.model.selection.empty?
-
-        model = Sketchup.active_model
-        model.start_operation(OB[:action_mirror], true)
-        added = CopyEntities.move(transformation, model.selection, @copy_mode)
-        added.reject!(&:deleted?)
-        model.selection.add(added)
-        model.commit_operation
-
-        @preview_lines = ExtractLines.extract_lines(model.selection)
-        @normal = nil
-        @bounds_intersection = nil
+        transform
       end
 
       # @api
@@ -233,7 +223,7 @@ module Eneroth
       def pick_bounds(view, x, y)
         ray = view.pickray(x, y)
         intersections = view.model.selection.map do |instance|
-          next unless instance?(instance)
+          next unless EntityHelper.instance?(instance)
 
           # REVIEW: Move my selection bounds thingy to BoundsHelper?
           BoundsHelper.intersect_line(ray, instance.definition.bounds,
@@ -247,14 +237,14 @@ module Eneroth
         @handle_corners = []
         @handle_planes = []
 
-        bounds = selection_bounds(view.model.selection)
-        bounds_tr = selection_bounds_transformation(view.model.selection)
+        bounds = BoundsHelper.selection_bounds(view.model.selection)
+        bounds_tr = BoundsHelper.selection_bounds_transformation(view.model.selection)
         bounds_center = bounds.center.transform(bounds_tr)
         # From face of bounds to center of each handle
         spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
-        
+
         cam_direction = view.camera.direction
-        
+
         # REVIEW: Set up dynamically in a loop.
         # Use helper methods to get bounds side length and transformation axis by index.
 
@@ -328,7 +318,7 @@ module Eneroth
         if @ip.source_edge && !ip_in_selection?
           @ip.source_edge.line[1].transform(@ip.transformation)
         elsif @ip.source_face
-          MyGeom.transform_as_normal(@ip.source_face.normal, @ip.transformation)
+          GeomHelper.transform_as_normal(@ip.source_face.normal, @ip.transformation)
         end
       end
 
@@ -355,43 +345,30 @@ module Eneroth
         !!@normal
       end
 
+      # Calculate transformation from current position and normal.
       def transformation
         plane = Geom::Transformation.new(@ip.position, @normal)
         plane * Geom::Transformation.scaling(1, 1, -1) * plane.inverse
       end
 
-      def instance?(entity)
-        [Sketchup::Group, Sketchup::ComponentInstance].include?(entity.class)
+      # Carry out the transformation on the selected entities.
+      def transform
+        model = Sketchup.active_model
+
+        return if !plane? || model.selection.empty?
+
+        model.start_operation(OB[:action_mirror], true)
+        added = CopyEntities.move(transformation, model.selection, @copy_mode)
+        added.reject!(&:deleted?)
+        model.selection.add(added)
+        model.commit_operation
+
+        @preview_lines = ExtractLines.extract_lines(model.selection)
+        @normal = nil
+        @bounds_intersection = nil
       end
 
-      # Get the bounding box for the selection.
-      #
-      # This may be in global coordinates, or if only a single instance is
-      # selected, in its internal coordinates.
-      #
-      # @see selection_bounds_transform
-      def selection_bounds(selection)
-        if selection.size == 1 && instance?(selection.first)
-          return selection.first.definition.bounds
-        end
-
-        bounds = Geom::BoundingBox.new
-        selection.each { |e| bounds.add(e.bounds) }
-
-        bounds
-      end
-
-      # Get the bounding box transformation for the selection.
-      #
-      # @see selection_bounds_transform
-      def selection_bounds_transformation(selection)
-        if selection.size == 1 && instance?(selection.first)
-          return selection.first.transformation
-        end
-
-        IDENTITY
-      end
-
+      # Get corners of a square used to convey a plane to the user.
       def calculate_plane_corners(view, position, normal, side)
         points = [
           Geom::Point3d.new(-side / 2, -side / 2, 0),
@@ -407,12 +384,14 @@ module Eneroth
         points
       end
 
+      # Draw the mirror plane.
       def draw_mirror_plane(view, position, normal)
         view.set_color_from_line(ORIGIN, ORIGIN.offset(normal))
         points = calculate_plane_corners(view, position, normal, PREVIEW_SIDE)
         view.draw(GL_LINE_LOOP, points)
       end
 
+      # Get the current tool tooltip.
       def tooltip
         return @ip_direction.tooltip if @mouse_down
 
