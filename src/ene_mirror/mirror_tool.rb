@@ -100,7 +100,6 @@ module Eneroth
           @handle_corners = []
 
           # TODO: Show handles on the side towards the camera
-          # TODO: Mirror around handle when pressed.
           # OPTIMIZE: Cache bounds
           bounds = selection_bounds(view.model.selection)
           bounds_tr = selection_bounds_transformation(view.model.selection)
