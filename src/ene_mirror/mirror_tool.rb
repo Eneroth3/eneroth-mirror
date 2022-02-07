@@ -105,6 +105,10 @@ module Eneroth
             # TODO: Draw stroke slightly in front to stop Z-fighting
             view.drawing_color = FLIP_EDGE_COLOR
             view.draw(GL_LINE_LOOP, points)
+            # TODO: Draw a transparent version in 2D screen space, to get an
+            # X-ray-like style when behind geometry.
+            # Draw the active handle only in 2D screen space to show it on top
+            # of any geometry, like in Scale tool.
           end
         end
 
@@ -165,6 +169,9 @@ module Eneroth
         # If selection has been emptied, e.g. from undo or the erase command,
         # revert to pick phase.
         @pre_selection = false if view.model.selection.empty?
+        
+        # TODO: Don't pick a direction when Shift is pressed, only the plane.
+        # Unless a handle is pressed, handles have precedence.
 
         if @mouse_down
           pick_direction(view, x, y)
