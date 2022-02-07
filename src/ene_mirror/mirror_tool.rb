@@ -232,6 +232,8 @@ module Eneroth
         @bounds_intersection = intersections.compact.min_by(&:distance)
       end
 
+      # TODO: Call on redo/undo
+
       # Set up the flip handles around the model selection.
       def set_up_handles(view)
         @handle_corners = []
@@ -366,6 +368,7 @@ module Eneroth
         @preview_lines = ExtractLines.extract_lines(model.selection)
         @normal = nil
         @bounds_intersection = nil
+        set_up_handles(model.active_view)
       end
 
       # Get corners of a square used to convey a plane to the user.
