@@ -15,12 +15,15 @@ module Eneroth
     class MirrorTool < Tool
       # Side of plane preview in logical pixels.
       PREVIEW_SIDE = 100
-      
+
       # Side of flip handle in logical pixels.
       FLIP_SIDE = 30
-      
+
       # Spacing from bounds to flip handle in logical pixels.
       FLIP_SPACING = 10
+
+      FLIP_COLOR = Sketchup::Color.new(0, 255, 0)
+      FLIP_EDGE_COLOR = Sketchup::Color.new(0, 0, 0)
 
       # Native Move
       CURSOR_MOVE = 641
@@ -74,7 +77,7 @@ module Eneroth
           tr = transformation
           view.draw(GL_LINES, @preview_lines.map { |pt| pt.transform(tr) })
         end
-        
+
         # Drag direction line
         if @mouse_down
           view.set_color_from_line(@ip.position, @ip_direction.position)
@@ -82,7 +85,7 @@ module Eneroth
           view.draw(GL_LINES, @ip.position, @ip_direction.position)
           view.line_stipple = ""
         end
-        
+
         # Flip handles
         if @pre_selection
           # TODO: Honor rotated bounds of single selected instance.
@@ -95,25 +98,25 @@ module Eneroth
           # From bounds to center of each handle
           spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds.center)
           handle_side = view.pixels_to_model(FLIP_SIDE, bounds.center)
-          
+
           # X side handle
           handle_center = bounds.center.offset(X_AXIS, bounds.width / 2 + spacing)
-          draw_plane(view, handle_center, Y_AXIS, FLIP_SIDE)
-          
+          draw_plane(view, handle_center, Y_AXIS, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
+
           # Y side handle
           # bounds.height = the bounds depth
           handle_center = bounds.center.offset(Y_AXIS, bounds.height / 2 + spacing)
-          draw_plane(view, handle_center, Z_AXIS, FLIP_SIDE)
-          
+          draw_plane(view, handle_center, Z_AXIS, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
+
           # Z side handle
           # bounds.depth = the bounds height
           handle_center = bounds.center.offset(Z_AXIS, bounds.depth / 2 + spacing)
-          draw_plane(view, handle_center, X_AXIS, FLIP_SIDE)
+          draw_plane(view, handle_center, X_AXIS, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
         end
-        
+
         # Custom mirror plane
         draw_mirror_plane(view, @ip.position, @normal) if plane?
-        
+
         @ip.draw(view)
         @ip_direction.draw(view) if @mouse_down
 
@@ -303,8 +306,8 @@ module Eneroth
       def instance?(entity)
         [Sketchup::Group, Sketchup::ComponentInstance].include?(entity.class)
       end
-      
-      def calculate_plane_corners(view, position, direction, side)
+
+      def calculate_plane_corners(view, position, normal, side)
         points = [
           Geom::Point3d.new(-side / 2, -side / 2, 0),
           Geom::Point3d.new(side / 2, -side / 2, 0),
@@ -312,21 +315,29 @@ module Eneroth
           Geom::Point3d.new(-side / 2, side / 2, 0)
         ]
         transformation =
-          Geom::Transformation.new(position, direction) *
+          Geom::Transformation.new(position, normal) *
           Geom::Transformation.scaling(view.pixels_to_model(1, position))
         points.each { |pt| pt.transform!(transformation) }
-        
+
         points
       end
-      
-      def draw_plane(view, position, direction, side)
-        points = calculate_plane_corners(view, position, direction, side)
+
+      # General method for drawing a plane.
+      #
+      # @param side [Numeric] Size in logical pixels at plane center.
+      def draw_plane(view, position, normal, side, fill_color, stroke_color)
+        points = calculate_plane_corners(view, position, normal, side)
+        view.drawing_color = fill_color
+        view.draw(GL_POLYGON, points)
+        # TODO: Draw stroke slightly in front to stop Z-fighting
+        view.drawing_color = stroke_color
         view.draw(GL_LINE_LOOP, points)
       end
-      
+
       def draw_mirror_plane(view, position, normal)
         view.set_color_from_line(ORIGIN, ORIGIN.offset(normal))
-        draw_plane(view, position, normal, PREVIEW_SIDE)
+        points = calculate_plane_corners(view, position, normal, PREVIEW_SIDE)
+        view.draw(GL_LINE_LOOP, points)
       end
 
       def tooltip
