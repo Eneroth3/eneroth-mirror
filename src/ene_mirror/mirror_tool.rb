@@ -90,7 +90,7 @@ module Eneroth
         end
 
         # Drag direction line
-        if @mouse_down
+        if @mouse_down && !@hovered_handle
           view.set_color_from_line(@ip.position, @ip_direction.position)
           view.line_stipple = "-"
           view.draw(GL_LINES, @ip.position, @ip_direction.position)
@@ -112,7 +112,7 @@ module Eneroth
         draw_mirror_plane(view, @ip.position, @normal) if plane? && !@hovered_handle
 
         @ip.draw(view)
-        @ip_direction.draw(view) if @mouse_down
+        @ip_direction.draw(view) if @mouse_down && !@hovered_handle
 
         view.tooltip = tooltip
       end
@@ -339,6 +339,9 @@ module Eneroth
 
       # Used to pick custom direction when holding down mouse.
       def pick_direction(view, x, y)
+        # If the user presses down the mouse on a handle, we don't want to pick a custom direction.
+        return if @hovered_handle
+
         @ip_direction.pick(view, x, y, @ip)
         direction = @ip_direction.position - @ip.position
         @normal = direction if direction.valid?
