@@ -88,30 +88,30 @@ module Eneroth
 
         # Flip handles
         if @pre_selection
-          # TODO: Honor rotated bounds of single selected instance.
           # TODO: Show handles on the side towards the camera
           # TODO: Mirror around handle when pressed.
           # TODO: Make handle red when hovered.
           # OPTIMIZE: Cache bounds
-          bounds = Geom::BoundingBox.new
-          view.model.selection.each { |e| bounds.add(e.bounds) }
+          bounds = selection_bounds(view.model.selection)
+          bounds_tr = selection_bounds_transformation(view.model.selection)
+          bounds_center = bounds.center.transform(bounds_tr)
           # From bounds to center of each handle
-          spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds.center)
-          handle_side = view.pixels_to_model(FLIP_SIDE, bounds.center)
+          spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
+          handle_side = view.pixels_to_model(FLIP_SIDE, bounds_center)
 
           # X side handle
-          handle_center = bounds.center.offset(X_AXIS, bounds.width / 2 + spacing)
-          draw_plane(view, handle_center, Y_AXIS, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
+          handle_center = bounds_center.offset(bounds_tr.xaxis, bounds.width / 2 + spacing)
+          draw_plane(view, handle_center, bounds_tr.yaxis, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
 
           # Y side handle
           # bounds.height = the bounds depth
-          handle_center = bounds.center.offset(Y_AXIS, bounds.height / 2 + spacing)
-          draw_plane(view, handle_center, Z_AXIS, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
+          handle_center = bounds_center.offset(bounds_tr.yaxis, bounds.height / 2 + spacing)
+          draw_plane(view, handle_center, bounds_tr.zaxis, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
 
           # Z side handle
           # bounds.depth = the bounds height
-          handle_center = bounds.center.offset(Z_AXIS, bounds.depth / 2 + spacing)
-          draw_plane(view, handle_center, X_AXIS, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
+          handle_center = bounds_center.offset(bounds_tr.zaxis, bounds.depth / 2 + spacing)
+          draw_plane(view, handle_center, bounds_tr.xaxis, FLIP_SIDE, FLIP_COLOR, FLIP_EDGE_COLOR)
         end
 
         # Custom mirror plane
@@ -265,6 +265,7 @@ module Eneroth
       end
 
       def ip_direction
+        # REVIEW: Clarify
         # Flip along hovered edge, but not if edge is in the selection.
         # User likely doesn't want to flip object around itself causing an
         # overlap.
@@ -307,6 +308,34 @@ module Eneroth
         [Sketchup::Group, Sketchup::ComponentInstance].include?(entity.class)
       end
 
+      # Get the bounding box for the selection.
+      #
+      # This may be in global coordinates, or if only a single instance is
+      # selected, in its internal coordinates.
+      #
+      # @see selection_bounds_transform
+      def selection_bounds(selection)
+        if selection.size == 1 && instance?(selection.first)
+          return selection.first.definition.bounds
+        end
+
+        bounds = Geom::BoundingBox.new
+        selection.each { |e| bounds.add(e.bounds) }
+
+        bounds
+      end
+
+      # Get the bounding box transformation for the selection.
+      #
+      # @see selection_bounds_transform
+      def selection_bounds_transformation(selection)
+        if selection.size == 1 && instance?(selection.first)
+          return selection.first.transformation
+        end
+
+        IDENTITY
+      end
+
       def calculate_plane_corners(view, position, normal, side)
         points = [
           Geom::Point3d.new(-side / 2, -side / 2, 0),
@@ -326,6 +355,7 @@ module Eneroth
       #
       # @param side [Numeric] Size in logical pixels at plane center.
       def draw_plane(view, position, normal, side, fill_color, stroke_color)
+        # TODO: Handle rotation around normal.
         points = calculate_plane_corners(view, position, normal, side)
         view.drawing_color = fill_color
         view.draw(GL_POLYGON, points)
