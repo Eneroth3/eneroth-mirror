@@ -298,11 +298,11 @@ module Eneroth
       def pick_plane(view, x, y, normal_lock)
         # Flip plane "handles" have precedence over all else.
 
+        @hovered_handle = nil
         # When Shift is pressed down and the direction is locked, it doesn't
         # make much sense to pick the handles. The user has chosen the plane
         # direction already, and wants a plane position from the geometry.
         unless normal_lock
-          @hovered_handle = nil
           @handle_corners.each_with_index do |corners, index|
             screen_points = corners.map { |pt| view.screen_coords(pt) }
             next unless Geom.point_in_polygon_2D([x, y, 0], screen_points, true)
