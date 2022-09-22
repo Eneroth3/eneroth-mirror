@@ -84,7 +84,7 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def draw(view)
-        # Move preview
+        # Mirror preview
         if plane? && !view.model.selection.empty?
           tr = transformation
           view.draw(GL_LINES, @preview_lines.map { |pt| pt.transform(tr) })
@@ -99,22 +99,12 @@ module Eneroth
         end
 
         # Flip handles
-        if @pre_selection
-          @handle_corners.each_with_index do |points, index|
-            view.drawing_color = @hovered_handle == index ? FLIP_HOVER_COLOR : FLIP_COLOR
-            view.draw(GL_POLYGON, points)
-            # TODO: Draw stroke slightly in front to stop Z-fighting
-            view.drawing_color = FLIP_EDGE_COLOR
-            view.draw(GL_LINE_LOOP, points)
-            # TODO: Draw a transparent version in 2D screen space, to get an
-            # X-ray-like style when behind geometry.
-            # Draw the active handle only in 2D screen space to show it on top
-            # of any geometry, like in Scale tool.
-          end
-        end
+        # REVIEW: Rename these as standard planes or something?
+        # Used to be styled as little handles, visually inspired by Scale Tool.
+        draw_plane_handles(view) if @pre_selection
 
         # Custom mirror plane
-        draw_mirror_plane(view, @ip.position, @normal) if plane? && !@hovered_handle
+        draw_custom_mirror_plane(view, @ip.position, @normal) if plane? && !@hovered_handle
 
         @ip.draw(view)
         @ip_direction.draw(view) if @mouse_down && !@hovered_handle
@@ -423,8 +413,23 @@ module Eneroth
         points
       end
 
-      # Draw the mirror plane.
-      def draw_mirror_plane(view, position, normal)
+      # Draw the standard planes for flipping around selection center.
+      def draw_plane_handles(view)
+        @handle_corners.each_with_index do |points, index|
+          view.drawing_color = @hovered_handle == index ? FLIP_HOVER_COLOR : FLIP_COLOR
+          view.draw(GL_POLYGON, points)
+          # TODO: Draw stroke slightly in front to stop Z-fighting
+          view.drawing_color = FLIP_EDGE_COLOR
+          view.draw(GL_LINE_LOOP, points)
+          # TODO: Draw a transparent version in 2D screen space, to get an
+          # X-ray-like style when behind geometry.
+          # Draw the active handle only in 2D screen space to show it on top
+          # of any geometry, like in Scale tool.
+        end
+      end
+      
+      # Draw the "custom" mirror plane (the one from hovered geometry/bounds).
+      def draw_custom_mirror_plane(view, position, normal)
         view.set_color_from_line(ORIGIN, ORIGIN.offset(normal))
         points = calculate_plane_corners(view, position, normal, PREVIEW_SIDE)
         view.draw(GL_LINE_LOOP, points)
