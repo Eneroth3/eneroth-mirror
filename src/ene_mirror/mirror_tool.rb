@@ -334,10 +334,10 @@ module Eneroth
       end
 
       def ip_direction
-        # REVIEW: Clarify
-        # Flip along hovered edge, but not if edge is in the selection.
-        # User likely doesn't want to flip object around itself causing an
-        # overlap.
+        # Typically flip direction is taken from a hovered face.
+        # If an edge, outside of the selection, is hovered, its direction can
+        # also be used. If the edge is inside of the selection, you likely don't
+        # want to flip along it, as it would create an overlap.
         if @ip.source_edge && !ip_in_selection?
           @ip.source_edge.line[1].transform(@ip.transformation)
         elsif @ip.source_face
