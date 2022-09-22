@@ -350,13 +350,13 @@ module Eneroth
         # Mirror plane can be picked on hover from standard mirror planes (flip
         # along selection center), the bounds of a selected group/component, or
         # any geometry in the model.
-        possible_planes = [
-          pick_standard_plane(view, x, y),
-          pick_bounds_plane(view, x, y),
-          pick_custom_plane(view, x, y)
-        ].compact.sort_by(&:depth)
-
-        # TODO: normal_lock disables standard_plane. Maybe also bounds
+        possible_planes = []
+        unless normal_lock
+          possible_planes << pick_standard_plane(view, x, y)
+          possible_planes << pick_bounds_plane(view, x, y)
+        end
+        possible_planes << pick_custom_plane(view, x, y)
+        possible_planes = possible_planes.compact.sort_by(&:depth)
 
         # Standard planes and geometry inside of the selection takes precedence
         # over bounds, regardless of depth.
