@@ -5,8 +5,8 @@ design for native Flip Along.
 
 Behaviors:
 
-* Click plane "handle" to flip around axis
+* Click "standard plane" to flip along axis at center
 * Click any face to flip around it
-* Click on bounds (but not on selected geometry) to flip around it
+* Click on bounds (but not on selected geometry) to flip around its boundary
 * Press and drag to flip along any custom plane
 * Live preview on hover
