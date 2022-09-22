@@ -62,10 +62,9 @@ module Eneroth
         @pre_selection = !model.selection.empty?
 
         set_up_handles(model.active_view) if @pre_selection
+        invalidate_preview_source(model)
 
-        # Flat array of points making up lines to preview, without any
-        # mirroring.
-        @preview_lines = ExtractLines.extract_lines(model.selection)
+        model.add_observer(self)
 
         onSetCursor
         update_status_text
@@ -76,6 +75,8 @@ module Eneroth
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def deactivate(view)
         super
+
+        view.model.remove_observer(self)
 
         view.invalidate
       end
@@ -122,7 +123,6 @@ module Eneroth
       end
 
       # TODO: Instructor
-      # TODO: Fix undo previewing wrong content.
 
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
@@ -203,6 +203,20 @@ module Eneroth
       end
 
       # @api
+      # @see https://ruby.sketchup.com/Sketchup/ModelObserver.html
+      def onTransactionRedo(model)
+        set_up_handles(model.active_view)
+        invalidate_preview_source(model)
+      end
+
+      # @api
+      # @see https://ruby.sketchup.com/Sketchup/ModelObserver.html
+      def onTransactionUndo(model)
+        set_up_handles(model.active_view)
+        invalidate_preview_source(model)
+      end
+
+      # @api
       # @see https://extensions.sketchup.com/en/content/eneroth-tool-memory
       def ene_tool_cycler_name
         OB["action_mirror"]
@@ -227,12 +241,12 @@ module Eneroth
         return unless hovered
 
         model.selection.add(hovered)
-        @preview_lines = ExtractLines.extract_lines(model.selection)
+        invalidate_preview_source(model)
       end
 
       # Used to list where the mouse pickray intersect the bounds of a
       # selected group or component.
-      # REVIEW: I can't remember why this is a separate thing and not in 
+      # REVIEW: I can't remember why this is a separate thing and not in
       # pick_plane.
       def pick_bounds(view, x, y)
         ray = view.pickray(x, y)
@@ -245,8 +259,6 @@ module Eneroth
         end
         @bounds_intersection = intersections.compact.min_by(&:distance)
       end
-
-      # TODO: Call on redo/undo
 
       # Set up the flip handles around the model selection.
       def set_up_handles(view)
@@ -389,7 +401,7 @@ module Eneroth
         model.selection.add(added)
         model.commit_operation
 
-        @preview_lines = ExtractLines.extract_lines(model.selection)
+        invalidate_preview_source(model)
         @normal = nil
         @bounds_intersection = nil
         set_up_handles(model.active_view)
@@ -423,6 +435,14 @@ module Eneroth
         return @ip_direction.tooltip if @mouse_down
 
         @tooltip_override || @ip.tooltip
+      end
+
+      # Set up cache for the untransformed state of the preview.
+      # Called whenever the selection to be transformed is changed.
+      def invalidate_preview_source(model)
+        # Flat array of points making up lines to preview, without any
+        # mirroring.
+        @preview_lines = ExtractLines.extract_lines(model.selection)
       end
     end
   end
