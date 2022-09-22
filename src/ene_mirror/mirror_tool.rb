@@ -23,8 +23,8 @@ module Eneroth
       # Spacing from bounds to flip handle in logical pixels.
       FLIP_SPACING = 10
 
-      FLIP_COLOR = Sketchup::Color.new(0, 255, 0)
-      FLIP_HOVER_COLOR = Sketchup::Color.new(255, 0, 0)
+      FLIP_COLOR = Sketchup::Color.new(255, 255, 255, 0.5)
+      FLIP_HOVER_COLOR = Sketchup::Color.new(255, 255, 255, 0.8)
       FLIP_EDGE_COLOR = Sketchup::Color.new(0, 0, 0)
 
       # Native Move
