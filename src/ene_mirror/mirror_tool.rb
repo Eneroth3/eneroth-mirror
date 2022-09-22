@@ -270,21 +270,24 @@ module Eneroth
         # Flip along X
         normal = bounds_tr.xaxis
         corners = bounds_corners.values_at(0, 2, 6, 4)
-        corners.each { |c| c.offset!(normal, normal.length / 2) }
+        corners.map! { |c| c.transform(bounds_tr) }
+        corners.map! { |c| c.offset(normal, bounds.width / 2) }
         @handle_corners << corners
         @handle_planes << [bounds_center, normal]
         
         # Flip along Y
         normal = bounds_tr.yaxis
         corners = bounds_corners.values_at(0, 1, 5, 4)
-        corners.each { |c| c.offset!(normal, normal.length / 2) }
+        corners.map! { |c| c.transform(bounds_tr) }
+        corners.map! { |c| c.offset(normal, bounds.height / 2) }
         @handle_corners << corners
         @handle_planes << [bounds_center, normal]
         
         # Flip along Z
         normal = bounds_tr.zaxis
         corners = bounds_corners.values_at(0, 1, 3, 2)
-        corners.each { |c| c.offset!(normal, normal.length / 2) }
+        corners.map! { |c| c.transform(bounds_tr) }
+        corners.map! { |c| c.offset(normal, bounds.depth / 2) }
         @handle_corners << corners
         @handle_planes << [bounds_center, normal]
       end
