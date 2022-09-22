@@ -38,7 +38,6 @@ module Eneroth
       def initialize
         @ip = Sketchup::InputPoint.new
         @ip_direction = Sketchup::InputPoint.new
-        @bounds_intersection = nil
         @normal = nil
 
         @copy_mode = false
@@ -109,7 +108,7 @@ module Eneroth
         @ip.draw(view)
         @ip_direction.draw(view) if @mouse_down && !@hovered_handle
 
-        view.tooltip = tooltip
+        view.tooltip = @tooltip_text
       end
 
       # TODO: Instructor
@@ -288,31 +287,6 @@ module Eneroth
       PossiblePick = Struct.new(:plane, :depth, :type, :handle_index, :tooltip)
       # REVIEW: Change type into subclasses?
 
-      # Find a possible mirror plane from the bounds of a selected group/instance.
-      def pick_bounds_plane(view, x, y)
-        ray = view.pickray(x, y)
-        view.model.selection.map do |instance|
-          next unless EntityHelper.instance?(instance)
-
-          intersection =
-            BoundsHelper.intersect_line(ray, instance.definition.bounds, instance.transformation)
-
-          next unless intersection
-
-          PossiblePick.new(
-            [intersection.position, intersection.normal],
-            intersection.position.distance(view.camera.eye),
-            :bounds,
-            nil,
-            OB[:inference_on_bounds]
-          )
-        end.compact.min_by(&:depth)
-      end
-
-      # TODO: Purge variable: @bounds_intersection
-
-      # TODO: Reorder. Standard planes before bounds.
-
       # Find a possible mirror plane from the three standard planes.
       def pick_standard_plane(view, x, y)
         ray = view.pickray(x, y)
@@ -332,6 +306,27 @@ module Eneroth
             :standard_plane,
             index,
             OB["flip_along_#{axis_name}"]
+          )
+        end.compact.min_by(&:depth)
+      end
+
+      # Find a possible mirror plane from the bounds of a selected group/instance.
+      def pick_bounds_plane(view, x, y)
+        ray = view.pickray(x, y)
+        view.model.selection.map do |instance|
+          next unless EntityHelper.instance?(instance)
+
+          intersection =
+            BoundsHelper.intersect_line(ray, instance.definition.bounds, instance.transformation)
+
+          next unless intersection
+
+          PossiblePick.new(
+            [intersection.position, intersection.normal],
+            intersection.position.distance(view.camera.eye),
+            :bounds,
+            nil,
+            OB[:inference_on_bounds]
           )
         end.compact.min_by(&:depth)
       end
@@ -358,7 +353,8 @@ module Eneroth
           )
       end
 
-      # Used to pick mirror plane from hovered entity, on mouse move.
+      # Used to pick mirror plane from hovered standard plane, bounding box or
+      # entity, on mouse move.
       def pick_plane(view, x, y, normal_lock)
         # Mirror plane can be picked on hover from standard mirror planes (flip
         # along selection center), the bounds of a selected group/component, or
@@ -389,8 +385,7 @@ module Eneroth
         @ip = Sketchup::InputPoint.new(picked_plane.plane[0]) unless picked_plane.type == :geometry
         @normal = picked_plane.plane[1] unless normal_lock
         @hovered_handle = picked_plane.handle_index
-        # TODO: Rename to tooltip_text. Dump getter method and set this in mouse move if dragging.
-        @tooltip_override = picked_plane.tooltip
+        @tooltip_text = picked_plane.tooltip
       end
 
       def ip_in_selection?
@@ -405,6 +400,7 @@ module Eneroth
         @ip_direction.pick(view, x, y, @ip)
         direction = @ip_direction.position - @ip.position
         @normal = direction if direction.valid?
+        @tooltip_text = @ip_direction.tooltip
       end
 
       def plane?
@@ -431,7 +427,6 @@ module Eneroth
 
         invalidate_preview_source(model)
         @normal = nil
-        @bounds_intersection = nil
         set_up_handles(model.active_view)
       end
 
@@ -477,7 +472,7 @@ module Eneroth
       def tooltip
         return @ip_direction.tooltip if @mouse_down
 
-        @tooltip_override
+        @tooltip_text
       end
 
       # Set up cache for the untransformed state of the preview.
