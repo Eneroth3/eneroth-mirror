@@ -235,17 +235,15 @@ module Eneroth
         bounds_center = bounds.center.transform(bounds_tr)
         bounds_corners = 8.times.map { |i| bounds.corner(i) }
 
-        ### # From face of bounds to center of each handle
-        ### spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
-        # TODO: Size up planes a little, like Section Planes.
-
-        # REVIEW: Set up dynamically in a loop?
+        # Visually scale up planes slightly so they don't tangent the bounding box.
+        tr_size = Geom::Transformation.scaling(bounds.center.transform(bounds_tr), 1.2)
 
         # Flip along X
         normal = bounds_tr.xaxis
         corners = bounds_corners.values_at(0, 2, 6, 4)
         corners.map! { |c| c.transform(bounds_tr) }
         corners.map! { |c| c.offset(normal, bounds.width / 2) }
+        corners.map! { |c| c.transform(tr_size) }
         @standard_plane_corners << corners
         @standard_plane_planes << [bounds_center, normal]
 
@@ -254,6 +252,7 @@ module Eneroth
         corners = bounds_corners.values_at(0, 1, 5, 4)
         corners.map! { |c| c.transform(bounds_tr) }
         corners.map! { |c| c.offset(normal, bounds.height / 2) }
+        corners.map! { |c| c.transform(tr_size) }
         @standard_plane_corners << corners
         @standard_plane_planes << [bounds_center, normal]
 
@@ -262,6 +261,7 @@ module Eneroth
         corners = bounds_corners.values_at(0, 1, 3, 2)
         corners.map! { |c| c.transform(bounds_tr) }
         corners.map! { |c| c.offset(normal, bounds.depth / 2) }
+        corners.map! { |c| c.transform(tr_size) }
         @standard_plane_corners << corners
         @standard_plane_planes << [bounds_center, normal]
       end
