@@ -24,7 +24,7 @@ module Eneroth
       FLIP_SPACING = 10
 
       FLIP_COLOR = Sketchup::Color.new(255, 255, 255, 0.5)
-      FLIP_HOVER_COLOR = Sketchup::Color.new(255, 255, 255, 0.8)
+      FLIP_HOVER_COLOR = Sketchup::Color.new(0, 255, 0, 0.5)
       FLIP_EDGE_COLOR = Sketchup::Color.new(0, 0, 0)
 
       # Native Move
@@ -169,8 +169,8 @@ module Eneroth
           # Similar to Rotate tool.
           pick_direction(view, x, y)
         else
+          # Pick from what is currently hovered.
           @ip.pick(view, x, y)
-          pick_bounds(view, x, y)
           pick_plane(view, x, y, normal_lock)
           pick_selection(view.model) unless @pre_selection
         end
@@ -234,23 +234,7 @@ module Eneroth
         invalidate_preview_source(model)
       end
 
-      # Used to list where the mouse pickray intersect the bounds of a
-      # selected group or component.
-      # REVIEW: I can't remember why this is a separate thing and not in
-      # pick_plane.
-      def pick_bounds(view, x, y)
-        ray = view.pickray(x, y)
-        intersections = view.model.selection.map do |instance|
-          next unless EntityHelper.instance?(instance)
-
-          # REVIEW: Move my selection bounds thingy to BoundsHelper?
-          BoundsHelper.intersect_line(ray, instance.definition.bounds,
-                                      instance.transformation)
-        end
-        @bounds_intersection = intersections.compact.min_by(&:distance)
-      end
-
-      # Set up the flip handles around the model selection.
+      # Set up the standard mirror planes around the model selection.
       def set_up_handles(view)
         @handle_corners = []
         @handle_planes = []
@@ -259,14 +243,14 @@ module Eneroth
         bounds_tr = BoundsHelper.selection_bounds_transformation(view.model.selection)
         bounds_center = bounds.center.transform(bounds_tr)
         bounds_corners = 8.times.map { |i| bounds.corner(i) }
-        
+
         ### # From face of bounds to center of each handle
         ### spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
-        
+
         # TODO: Size up planes a little, like Section Planes.
-        
+
         # REVIEW: Set up dynamically in a loop?
-        
+
         # Flip along X
         normal = bounds_tr.xaxis
         corners = bounds_corners.values_at(0, 2, 6, 4)
@@ -274,7 +258,7 @@ module Eneroth
         corners.map! { |c| c.offset(normal, bounds.width / 2) }
         @handle_corners << corners
         @handle_planes << [bounds_center, normal]
-        
+
         # Flip along Y
         normal = bounds_tr.yaxis
         corners = bounds_corners.values_at(0, 1, 5, 4)
@@ -282,7 +266,7 @@ module Eneroth
         corners.map! { |c| c.offset(normal, bounds.height / 2) }
         @handle_corners << corners
         @handle_planes << [bounds_center, normal]
-        
+
         # Flip along Z
         normal = bounds_tr.zaxis
         corners = bounds_corners.values_at(0, 1, 3, 2)
@@ -292,67 +276,125 @@ module Eneroth
         @handle_planes << [bounds_center, normal]
       end
 
-      # Used to pick mirror plane from hovered entity on mouse move.
-      def pick_plane(view, x, y, normal_lock)
-        # Flip plane "handles" have precedence over all else.
+      # A plane the user may be choosing as mirror plane.
+      # - plane [Array<Geom::Point3d, Geom::Vector3d>]
+      # - depth [Length]
+      #     Used to prioritize what is being picked.
+      # - type [:bounds, :standard_plane, :geometry]
+      #     Used to prioritize what is being picked.
+      # - handle_index [nil, Integer]
+      #     Used to highlight the hovered standard plane.
+      # - tooltip [String]
+      PossiblePick = Struct.new(:plane, :depth, :type, :handle_index, :tooltip)
+      # REVIEW: Change type into subclasses?
 
-        @hovered_handle = nil
-        # When Shift is pressed down and the direction is locked, it doesn't
-        # make much sense to pick the handles. The user has chosen the plane
-        # direction already, and wants a plane position from the geometry.
-        unless normal_lock
-          @handle_corners.each_with_index do |corners, index|
-            screen_points = corners.map { |pt| view.screen_coords(pt) }
-            next unless Geom.point_in_polygon_2D([x, y, 0], screen_points, true)
+      # Find a possible mirror plane from the bounds of a selected group/instance.
+      def pick_bounds_plane(view, x, y)
+        ray = view.pickray(x, y)
+        view.model.selection.map do |instance|
+          next unless EntityHelper.instance?(instance)
 
-            @hovered_handle = index
-            @normal = @handle_planes[index][1]
-            @ip = Sketchup::InputPoint.new(@handle_planes[index][0])
-            axis_name = ["red", "green", "blue"][index]
-            # TODO: Distinguish "Component's Red" from model "Red".
-            @tooltip_override = OB["flip_along_#{axis_name}"]
+          intersection =
+            BoundsHelper.intersect_line(ray, instance.definition.bounds, instance.transformation)
 
-            return
-          end
-        end
+          next unless intersection
 
-        # InputPoint in selection has precedence.
-        # Then InputPoint or point on bounds are used depending on which is
-        # closest to the camera.
-        if ip_in_selection? || !bounds_in_front_of_ip?
-          # From InputPoint.
-          @normal = ip_direction unless normal_lock
-          @tooltip_override = nil
-        else
-          # From Bounds.
-          @ip = Sketchup::InputPoint.new(@bounds_intersection.position)
-          @normal = @bounds_intersection.normal unless normal_lock
-          @tooltip_override = OB[:inference_on_bounds]
-        end
+          PossiblePick.new(
+            [intersection.position, intersection.normal],
+            intersection.position.distance(view.camera.eye),
+            :bounds,
+            nil,
+            OB[:inference_on_bounds]
+          )
+        end.compact.min_by(&:depth)
       end
 
-      def ip_direction
+      # TODO: Purge variable: @bounds_intersection
+
+      # TODO: Reorder. Standard planes before bounds.
+
+      # Find a possible mirror plane from the three standard planes.
+      def pick_standard_plane(view, x, y)
+        ray = view.pickray(x, y)
+
+        @handle_corners.map.with_index do |corners, index|
+          screen_points = corners.map { |pt| view.screen_coords(pt) }
+          next unless Geom.point_in_polygon_2D([x, y, 0], screen_points, true)
+
+          intersection = Geom.intersect_line_plane(ray, @handle_planes[index])
+
+          # TODO: Distinguish "Component's Red" from model "Red".
+          axis_name = ["red", "green", "blue"][index]
+
+          PossiblePick.new(
+            @handle_planes[index],
+            intersection.distance(view.camera.eye),
+            :standard_plane,
+            index,
+            OB["flip_along_#{axis_name}"]
+          )
+        end.compact.min_by(&:depth)
+      end
+
+      # Find possible custom mirror plane from hovered geometry.
+      def pick_custom_plane(view, _x, _y)
         # Typically flip direction is taken from a hovered face.
         # If an edge, outside of the selection, is hovered, its direction can
         # also be used. If the edge is inside of the selection, you likely don't
         # want to flip along it, as it would create an overlap.
-        if @ip.source_edge && !ip_in_selection?
-          @ip.source_edge.line[1].transform(@ip.transformation)
-        elsif @ip.source_face
-          GeomHelper.transform_as_normal(@ip.source_face.normal, @ip.transformation)
+        normal =
+          if @ip.source_edge && !ip_in_selection?
+            @ip.source_edge.line[1].transform(@ip.transformation)
+          elsif @ip.source_face
+            GeomHelper.transform_as_normal(@ip.source_face.normal, @ip.transformation)
+          end
+
+        PossiblePick.new(
+            [@ip.position, normal],
+            @ip.position.distance(view.camera.eye),
+            :geometry,
+            nil,
+            @ip.tooltip
+          )
+      end
+
+      # Used to pick mirror plane from hovered entity, on mouse move.
+      def pick_plane(view, x, y, normal_lock)
+        # Mirror plane can be picked on hover from standard mirror planes (flip
+        # along selection center), the bounds of a selected group/component, or
+        # any geometry in the model.
+        possible_planes = [
+          pick_standard_plane(view, x, y),
+          pick_bounds_plane(view, x, y),
+          pick_custom_plane(view, x, y)
+        ].compact.sort_by(&:depth)
+
+        # TODO: normal_lock disables standard_plane. Maybe also bounds
+
+        # Standard planes and geometry inside of the selection takes precedence
+        # over bounds, regardless of depth.
+        # Bounds can only be picked if there is empty space behind it, or some
+        # other geometry that is not selected.
+        if possible_planes.first.type == :bounds
+          second = possible_planes[1]
+          if second.type == :standard_plane || second.type == :geometry && ip_in_selection?
+            possible_planes.shift
+          end
         end
+
+        picked_plane = possible_planes.first
+
+        # REVIEW: Base the whole tool around PossiblePick struct, rather than
+        # just using it locally for the pick code?
+        @ip = Sketchup::InputPoint.new(picked_plane.plane[0]) unless picked_plane.type == :geometry
+        @normal = picked_plane.plane[1] unless normal_lock
+        @hovered_handle = picked_plane.handle_index
+        # TODO: Rename to tooltip_text. Dump getter method and set this in mouse move if dragging.
+        @tooltip_override = picked_plane.tooltip
       end
 
       def ip_in_selection?
         !(@ip.instance_path.to_a & Sketchup.active_model.selection.to_a).empty?
-      end
-
-      def bounds_in_front_of_ip?
-        return false unless @bounds_intersection
-
-        eye = Sketchup.active_model.active_view.camera.eye
-
-        @bounds_intersection.position.distance(eye) < @ip.position.distance(eye)
       end
 
       # Used to pick custom direction when holding down mouse.
@@ -423,7 +465,7 @@ module Eneroth
           # of any geometry, like in Scale tool.
         end
       end
-      
+
       # Draw the "custom" mirror plane (the one from hovered geometry/bounds).
       def draw_custom_mirror_plane(view, position, normal)
         view.set_color_from_line(ORIGIN, ORIGIN.offset(normal))
@@ -435,7 +477,7 @@ module Eneroth
       def tooltip
         return @ip_direction.tooltip if @mouse_down
 
-        @tooltip_override || @ip.tooltip
+        @tooltip_override
       end
 
       # Set up cache for the untransformed state of the preview.
