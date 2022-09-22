@@ -258,42 +258,35 @@ module Eneroth
         bounds = BoundsHelper.selection_bounds(view.model.selection)
         bounds_tr = BoundsHelper.selection_bounds_transformation(view.model.selection)
         bounds_center = bounds.center.transform(bounds_tr)
-        # From face of bounds to center of each handle
-        spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
-
-        cam_direction = view.camera.direction
-
-        # REVIEW: Set up dynamically in a loop.
-        # Use helper methods to get bounds side length and transformation axis by index.
-
-        # Z side handle
-        # Flip Along X
-        handle_normal = bounds_tr.xaxis
-        # bounds.depth = the bounds height
-        handle_offset = bounds_tr.zaxis.tap { |v| v.length = bounds.depth / 2 + spacing }
-        handle_offset.reverse! if handle_offset % cam_direction > 0
-        handle_center = bounds_center.offset(handle_offset)
-        @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
-        @handle_planes << [handle_center, handle_normal]
-
-        # X side handle
-        # Flip Along Y
-        handle_normal = bounds_tr.yaxis
-        handle_offset = bounds_tr.xaxis.tap { |v| v.length = bounds.width / 2 + spacing }
-        handle_offset.reverse! if handle_offset % cam_direction > 0
-        handle_center = bounds_center.offset(handle_offset)
-        @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
-        @handle_planes << [handle_center, handle_normal]
-
-        # Y side handle
-        # Flip Along Z
-        handle_normal = bounds_tr.zaxis
-        # bounds.height = the bounds depth
-        handle_offset = bounds_tr.yaxis.tap { |v| v.length = bounds.height / 2 + spacing }
-        handle_offset.reverse! if handle_offset % cam_direction > 0
-        handle_center = bounds_center.offset(handle_offset)
-        @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
-        @handle_planes << [handle_center, handle_normal]
+        bounds_corners = 8.times.map { |i| bounds.corner(i) }
+        
+        ### # From face of bounds to center of each handle
+        ### spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
+        
+        # TODO: Size up planes a little, like Section Planes.
+        
+        # REVIEW: Set up dynamically in a loop?
+        
+        # Flip along X
+        normal = bounds_tr.xaxis
+        corners = bounds_corners.values_at(0, 2, 6, 4)
+        corners.each { |c| c.offset!(normal, normal.length / 2) }
+        @handle_corners << corners
+        @handle_planes << [bounds_center, normal]
+        
+        # Flip along Y
+        normal = bounds_tr.yaxis
+        corners = bounds_corners.values_at(0, 1, 5, 4)
+        corners.each { |c| c.offset!(normal, normal.length / 2) }
+        @handle_corners << corners
+        @handle_planes << [bounds_center, normal]
+        
+        # Flip along Z
+        normal = bounds_tr.zaxis
+        corners = bounds_corners.values_at(0, 1, 3, 2)
+        corners.each { |c| c.offset!(normal, normal.length / 2) }
+        @handle_corners << corners
+        @handle_planes << [bounds_center, normal]
       end
 
       # Used to pick mirror plane from hovered entity on mouse move.
