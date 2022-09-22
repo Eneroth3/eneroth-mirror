@@ -17,12 +17,6 @@ module Eneroth
       # Side of plane preview in logical pixels.
       PREVIEW_SIDE = 100
 
-      # Side of flip handle in logical pixels.
-      FLIP_SIDE = 30
-
-      # Spacing from bounds to flip handle in logical pixels.
-      FLIP_SPACING = 10
-
       FLIP_COLOR = Sketchup::Color.new(255, 255, 255, 0.5)
       FLIP_HOVER_COLOR = Sketchup::Color.new(0, 255, 0, 0.5)
       FLIP_EDGE_COLOR = Sketchup::Color.new(0, 0, 0)
@@ -43,12 +37,12 @@ module Eneroth
         @copy_mode = false
         @mouse_down = false
 
-        # Corners for the X, Y and Z flip handles
-        @handle_corners = []
-        # Planes for the X, Y and Z flip handles
-        @handle_planes = []
-        # Currently hovered handle. 0 for X, 1 for Y, 2 for Z, nil for none.
-        @hovered_handle = nil
+        # Corners for the standard X, Y, Z flipping planes
+        @standard_plane_corners = []
+        # Planes for the standard X, Y and Z flip planes
+        @standard_plane_planes = []
+        # Currently hovered standard plane. 0 for X, 1 for Y, 2 for Z, nil for none.
+        @hovered_standard_plane = nil
       end
 
       # @api
@@ -60,8 +54,8 @@ module Eneroth
 
         @pre_selection = !model.selection.empty?
 
-        set_up_handles(model.active_view) if @pre_selection
-        invalidate_preview_source(model)
+        init_standard_planes(model.active_view) if @pre_selection
+        init_preview_source(model)
 
         model.add_observer(self)
 
@@ -90,23 +84,21 @@ module Eneroth
         end
 
         # Drag direction line
-        if @mouse_down && !@hovered_handle
+        if @mouse_down && !@hovered_standard_plane
           view.set_color_from_line(@ip.position, @ip_direction.position)
           view.line_stipple = "-"
           view.draw(GL_LINES, @ip.position, @ip_direction.position)
           view.line_stipple = ""
         end
 
-        # Flip handles
-        # REVIEW: Rename these as standard planes or something?
-        # Used to be styled as little handles, visually inspired by Scale Tool.
-        draw_plane_handles(view) if @pre_selection
+        # Standard mirror planes
+        draw_standard_planes(view) if @pre_selection
 
         # Custom mirror plane
-        draw_custom_mirror_plane(view, @ip.position, @normal) if plane? && !@hovered_handle
+        draw_custom_mirror_plane(view, @ip.position, @normal) if plane? && !@hovered_standard_plane
 
         @ip.draw(view)
-        @ip_direction.draw(view) if @mouse_down && !@hovered_handle
+        @ip_direction.draw(view) if @mouse_down && !@hovered_standard_plane
 
         view.tooltip = @tooltip_text
       end
@@ -180,7 +172,7 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
       def resume(view)
-        set_up_handles(view) if @pre_selection
+        init_standard_planes(view) if @pre_selection
         view.invalidate
         update_status_text
       end
@@ -194,15 +186,15 @@ module Eneroth
       # @api
       # @see https://ruby.sketchup.com/Sketchup/ModelObserver.html
       def onTransactionRedo(model)
-        set_up_handles(model.active_view)
-        invalidate_preview_source(model)
+        init_standard_planes(model.active_view)
+        init_preview_source(model)
       end
 
       # @api
       # @see https://ruby.sketchup.com/Sketchup/ModelObserver.html
       def onTransactionUndo(model)
-        set_up_handles(model.active_view)
-        invalidate_preview_source(model)
+        init_standard_planes(model.active_view)
+        init_preview_source(model)
       end
 
       # @api
@@ -230,13 +222,13 @@ module Eneroth
         return unless hovered
 
         model.selection.add(hovered)
-        invalidate_preview_source(model)
+        init_preview_source(model)
       end
 
       # Set up the standard mirror planes around the model selection.
-      def set_up_handles(view)
-        @handle_corners = []
-        @handle_planes = []
+      def init_standard_planes(view)
+        @standard_plane_corners = []
+        @standard_plane_planes = []
 
         bounds = BoundsHelper.selection_bounds(view.model.selection)
         bounds_tr = BoundsHelper.selection_bounds_transformation(view.model.selection)
@@ -245,7 +237,6 @@ module Eneroth
 
         ### # From face of bounds to center of each handle
         ### spacing = view.pixels_to_model(FLIP_SPACING + FLIP_SIDE / 2, bounds_center)
-
         # TODO: Size up planes a little, like Section Planes.
 
         # REVIEW: Set up dynamically in a loop?
@@ -255,24 +246,24 @@ module Eneroth
         corners = bounds_corners.values_at(0, 2, 6, 4)
         corners.map! { |c| c.transform(bounds_tr) }
         corners.map! { |c| c.offset(normal, bounds.width / 2) }
-        @handle_corners << corners
-        @handle_planes << [bounds_center, normal]
+        @standard_plane_corners << corners
+        @standard_plane_planes << [bounds_center, normal]
 
         # Flip along Y
         normal = bounds_tr.yaxis
         corners = bounds_corners.values_at(0, 1, 5, 4)
         corners.map! { |c| c.transform(bounds_tr) }
         corners.map! { |c| c.offset(normal, bounds.height / 2) }
-        @handle_corners << corners
-        @handle_planes << [bounds_center, normal]
+        @standard_plane_corners << corners
+        @standard_plane_planes << [bounds_center, normal]
 
         # Flip along Z
         normal = bounds_tr.zaxis
         corners = bounds_corners.values_at(0, 1, 3, 2)
         corners.map! { |c| c.transform(bounds_tr) }
         corners.map! { |c| c.offset(normal, bounds.depth / 2) }
-        @handle_corners << corners
-        @handle_planes << [bounds_center, normal]
+        @standard_plane_corners << corners
+        @standard_plane_planes << [bounds_center, normal]
       end
 
       # A plane the user may be choosing as mirror plane.
@@ -281,27 +272,27 @@ module Eneroth
       #     Used to prioritize what is being picked.
       # - type [:bounds, :standard_plane, :geometry]
       #     Used to prioritize what is being picked.
-      # - handle_index [nil, Integer]
+      # - standard_plane_index [nil, Integer]
       #     Used to highlight the hovered standard plane.
       # - tooltip [String]
-      PossiblePick = Struct.new(:plane, :depth, :type, :handle_index, :tooltip)
+      PossiblePick = Struct.new(:plane, :depth, :type, :standard_plane_index, :tooltip)
       # REVIEW: Change type into subclasses?
 
       # Find a possible mirror plane from the three standard planes.
       def pick_standard_plane(view, x, y)
         ray = view.pickray(x, y)
 
-        @handle_corners.map.with_index do |corners, index|
+        @standard_plane_corners.map.with_index do |corners, index|
           screen_points = corners.map { |pt| view.screen_coords(pt) }
           next unless Geom.point_in_polygon_2D([x, y, 0], screen_points, true)
 
-          intersection = Geom.intersect_line_plane(ray, @handle_planes[index])
+          intersection = Geom.intersect_line_plane(ray, @standard_plane_planes[index])
 
           # TODO: Distinguish "Component's Red" from model "Red".
           axis_name = ["red", "green", "blue"][index]
 
           PossiblePick.new(
-            @handle_planes[index],
+            @standard_plane_planes[index],
             intersection.distance(view.camera.eye),
             :standard_plane,
             index,
@@ -384,7 +375,7 @@ module Eneroth
         # just using it locally for the pick code?
         @ip = Sketchup::InputPoint.new(picked_plane.plane[0]) unless picked_plane.type == :geometry
         @normal = picked_plane.plane[1] unless normal_lock
-        @hovered_handle = picked_plane.handle_index
+        @hovered_standard_plane = picked_plane.standard_plane_index
         @tooltip_text = picked_plane.tooltip
       end
 
@@ -394,8 +385,9 @@ module Eneroth
 
       # Used to pick custom direction when holding down mouse.
       def pick_direction(view, x, y)
-        # If the user presses down the mouse on a handle, we don't want to pick a custom direction.
-        return if @hovered_handle
+        # If the user presses down the mouse on a standard plane, we don't want
+        # to pick a custom direction.
+        return if @hovered_standard_plane
 
         @ip_direction.pick(view, x, y, @ip)
         direction = @ip_direction.position - @ip.position
@@ -425,9 +417,9 @@ module Eneroth
         model.selection.add(added)
         model.commit_operation
 
-        invalidate_preview_source(model)
+        init_preview_source(model)
         @normal = nil
-        set_up_handles(model.active_view)
+        init_standard_planes(model.active_view)
       end
 
       # Get corners of a square used to convey a plane to the user.
@@ -447,17 +439,12 @@ module Eneroth
       end
 
       # Draw the standard planes for flipping around selection center.
-      def draw_plane_handles(view)
-        @handle_corners.each_with_index do |points, index|
-          view.drawing_color = @hovered_handle == index ? FLIP_HOVER_COLOR : FLIP_COLOR
+      def draw_standard_planes(view)
+        @standard_plane_corners.each_with_index do |points, index|
+          view.drawing_color = @hovered_standard_plane == index ? FLIP_HOVER_COLOR : FLIP_COLOR
           view.draw(GL_POLYGON, points)
-          # TODO: Draw stroke slightly in front to stop Z-fighting
           view.drawing_color = FLIP_EDGE_COLOR
           view.draw(GL_LINE_LOOP, points)
-          # TODO: Draw a transparent version in 2D screen space, to get an
-          # X-ray-like style when behind geometry.
-          # Draw the active handle only in 2D screen space to show it on top
-          # of any geometry, like in Scale tool.
         end
       end
 
@@ -477,7 +464,7 @@ module Eneroth
 
       # Set up cache for the untransformed state of the preview.
       # Called whenever the selection to be transformed is changed.
-      def invalidate_preview_source(model)
+      def init_preview_source(model)
         # Flat array of points making up lines to preview, without any
         # mirroring.
         @preview_lines = ExtractLines.extract_lines(model.selection)
