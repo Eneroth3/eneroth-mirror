@@ -264,6 +264,16 @@ module Eneroth
         # REVIEW: Set up dynamically in a loop.
         # Use helper methods to get bounds side length and transformation axis by index.
 
+        # Z side handle
+        # Flip Along X
+        handle_normal = bounds_tr.xaxis
+        # bounds.depth = the bounds height
+        handle_offset = bounds_tr.zaxis.tap { |v| v.length = bounds.depth / 2 + spacing }
+        handle_offset.reverse! if handle_offset % cam_direction > 0
+        handle_center = bounds_center.offset(handle_offset)
+        @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
+        @handle_planes << [handle_center, handle_normal]
+
         # X side handle
         # Flip Along Y
         handle_normal = bounds_tr.yaxis
@@ -278,16 +288,6 @@ module Eneroth
         handle_normal = bounds_tr.zaxis
         # bounds.height = the bounds depth
         handle_offset = bounds_tr.yaxis.tap { |v| v.length = bounds.height / 2 + spacing }
-        handle_offset.reverse! if handle_offset % cam_direction > 0
-        handle_center = bounds_center.offset(handle_offset)
-        @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
-        @handle_planes << [handle_center, handle_normal]
-
-        # Z side handle
-        # Flip Along X
-        handle_normal = bounds_tr.xaxis
-        # bounds.depth = the bounds height
-        handle_offset = bounds_tr.zaxis.tap { |v| v.length = bounds.depth / 2 + spacing }
         handle_offset.reverse! if handle_offset % cam_direction > 0
         handle_center = bounds_center.offset(handle_offset)
         @handle_corners << calculate_plane_corners(view, handle_center, handle_normal, FLIP_SIDE)
