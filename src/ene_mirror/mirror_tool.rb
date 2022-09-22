@@ -165,20 +165,23 @@ module Eneroth
 
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
-      def onMouseMove(_flags, x, y, view)
+      def onMouseMove(flags, x, y, view)
         # If selection has been emptied, e.g. from undo or the erase command,
         # revert to pick phase.
         @pre_selection = false if view.model.selection.empty?
-        
-        # TODO: Don't pick a direction when Shift is pressed, only the plane.
-        # Unless a handle is pressed, handles have precedence.
+
+        # When shift is pressed we don't pick the plane normal,
+        # only its position. Lock direction similarly to Section Plane tool.
+        normal_lock = flags & CONSTRAIN_MODIFIER_MASK == CONSTRAIN_MODIFIER_MASK
 
         if @mouse_down
+          # Press and drag to pick a custom mirror plane from any two points.
+          # Similar to Rotate tool.
           pick_direction(view, x, y)
         else
           @ip.pick(view, x, y)
           pick_bounds(view, x, y)
-          pick_plane(view, x, y)
+          pick_plane(view, x, y, normal_lock)
           pick_selection(view.model) unless @pre_selection
         end
 
@@ -227,6 +230,10 @@ module Eneroth
         @preview_lines = ExtractLines.extract_lines(model.selection)
       end
 
+      # Used to list where the mouse pickray intersect the bounds of a
+      # selected group or component.
+      # REVIEW: I can't remember why this is a separate thing and not in 
+      # pick_plane.
       def pick_bounds(view, x, y)
         ray = view.pickray(x, y)
         intersections = view.model.selection.map do |instance|
@@ -288,34 +295,40 @@ module Eneroth
       end
 
       # Used to pick mirror plane from hovered entity on mouse move.
-      def pick_plane(view, x, y)
-        # Flip planes has precedence over all else.
-        @hovered_handle = nil
-        @handle_corners.each_with_index do |corners, index|
-          screen_points = corners.map { |pt| view.screen_coords(pt) }
-          next unless Geom.point_in_polygon_2D([x, y, 0], screen_points, true)
+      def pick_plane(view, x, y, normal_lock)
+        # Flip plane "handles" have precedence over all else.
 
-          @hovered_handle = index
-          @normal = @handle_planes[index][1]
-          @ip = Sketchup::InputPoint.new(@handle_planes[index][0])
-          axis_name = ["red", "green", "blue"][index]
-          # TODO: Distinguish "Component's Red" from model "Red".
-          @tooltip_override = OB["flip_along_#{axis_name}"]
+        # When Shift is pressed down and the direction is locked, it doesn't
+        # make much sense to pick the handles. The user has chosen the plane
+        # direction already, and wants a plane position from the geometry.
+        unless normal_lock
+          @hovered_handle = nil
+          @handle_corners.each_with_index do |corners, index|
+            screen_points = corners.map { |pt| view.screen_coords(pt) }
+            next unless Geom.point_in_polygon_2D([x, y, 0], screen_points, true)
 
-          return
+            @hovered_handle = index
+            @normal = @handle_planes[index][1]
+            @ip = Sketchup::InputPoint.new(@handle_planes[index][0])
+            axis_name = ["red", "green", "blue"][index]
+            # TODO: Distinguish "Component's Red" from model "Red".
+            @tooltip_override = OB["flip_along_#{axis_name}"]
+
+            return
+          end
         end
 
         # InputPoint in selection has precedence.
         # Then InputPoint or point on bounds are used depending on which is
-        # ahead.
+        # closest to the camera.
         if ip_in_selection? || !bounds_in_front_of_ip?
           # From InputPoint.
-          @normal = ip_direction
+          @normal = ip_direction unless normal_lock
           @tooltip_override = nil
         else
           # From Bounds.
           @ip = Sketchup::InputPoint.new(@bounds_intersection.position)
-          @normal = @bounds_intersection.normal
+          @normal = @bounds_intersection.normal unless normal_lock
           @tooltip_override = OB[:inference_on_bounds]
         end
       end
