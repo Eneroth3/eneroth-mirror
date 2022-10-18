@@ -28,6 +28,8 @@ module Eneroth
 
       # Native Move Copy
       CURSOR_COPY = 642
+      
+      PREVIEW_TRANSPARENCY = 0.5
 
       # @api
       # @see https://ruby.sketchup.com/Sketchup/Tool.html
@@ -81,8 +83,14 @@ module Eneroth
       def draw(view)
         # Mirror preview
         if plane? && !view.model.selection.empty?
+          # TODO: Extract drawing of preview. Have dedicated "ghost geometry"
+          # class with constructor (from entities) and draw method (with custom
+          # transformation).
           tr = transformation
-          view.draw(GL_LINES, @preview_lines.map { |pt| pt.transform(tr) })
+          corners = @preview.map { |td| td.corners.map { |c| c.transform(tr) }}.flatten
+          normals = @preview.map { |td| td.normals.map { |n| n.transform(tr) }}.flatten
+          view.drawing_color = [255, 255, 255, PREVIEW_TRANSPARENCY] # TODO: Get from face.
+          view.draw(GL_TRIANGLES, corners, normals: normals)
         end
 
         # Drag direction line
@@ -476,7 +484,7 @@ module Eneroth
       def init_preview_source(model)
         # Flat array of points making up lines to preview, without any
         # mirroring.
-        @preview_lines = ExtractLines.extract_lines(model.selection)
+        @preview = ExtractLines.extract_triangles(model.selection)
       end
     end
   end
