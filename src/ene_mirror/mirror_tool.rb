@@ -17,9 +17,11 @@ module Eneroth
       # Side of plane preview in logical pixels.
       PREVIEW_SIDE = 100
 
-      FLIP_COLOR = Sketchup::Color.new(255, 255, 255, 0.5)
-      FLIP_HOVER_COLOR = Sketchup::Color.new(0, 255, 0, 0.5)
-      FLIP_EDGE_COLOR = Sketchup::Color.new(0, 0, 0)
+      FLIP_PLANE_COLORS = [
+        Sketchup::Color.new(255, 0, 0),
+        Sketchup::Color.new(0, 255, 0),
+        Sketchup::Color.new(0, 0, 255)
+      ]
 
       # Native Move
       CURSOR_MOVE = 641
@@ -441,9 +443,15 @@ module Eneroth
       # Draw the standard planes for flipping around selection center.
       def draw_standard_planes(view)
         @standard_plane_corners.each_with_index do |points, index|
-          view.drawing_color = @hovered_standard_plane == index ? FLIP_HOVER_COLOR : FLIP_COLOR
+          hovered = @hovered_standard_plane == index
+          color = FLIP_PLANE_COLORS[index]
+
+          fill_color = Sketchup::Color.new(color)
+          fill_color.alpha = 0.2
+          view.drawing_color = fill_color
           view.draw(GL_POLYGON, points)
-          view.drawing_color = FLIP_EDGE_COLOR
+          view.drawing_color = color
+          view.line_width = hovered ? 3 : 2
           view.draw(GL_LINE_LOOP, points)
         end
       end
