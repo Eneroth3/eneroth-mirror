@@ -19,7 +19,7 @@ module Eneroth
       def initialize(entities, transparency: 0.5, transformation: IDENTITY)
         # REVIEW: Transparency vs opacity
         @transparency = transparency
-        @triangle_data = ExtractLines.extract_triangles(entities)
+        @face_data = extract_face_data(entities)
       end
 
       # Draw the PreviewGeometry. Typically called in each SketchUp tool draw
@@ -29,16 +29,30 @@ module Eneroth
       # @param transformation [Geom::Transformation]
       #   Typically calculated from mouse movement.
       def draw(view, transformation)
-        tr = transformation
-        corners = @triangle_data.map { |td| td.corners.map { |c| c.transform(tr) }}.flatten
-        normals = @triangle_data.map { |td| td.normals.map { |n| n.transform(tr) }}.flatten
-        view.drawing_color = [255, 255, 255, @transparency] # TODO: Get from face.
-        view.draw(GL_TRIANGLES, corners, normals: normals)
+        @face_data.each do |face_data|
+          color = 
+            if face_data.material
+              Sketchup::Color.new(face_data.material.color)
+            else
+              # TODO: Pick model drawing color
+              Sketchup::Color.new("white")
+            end
+          color.alpha = @transparency
+          view.drawing_color = color
+          
+          corners = face_data.triangle_corners.map { |c| c.transform(transformation) }
+          # TODO: Transform as normal
+          normals = face_data.triangle_normals.map { |n| n.transform(transformation) }
+          
+          view.draw(GL_TRIANGLES, corners, normals: normals)
+        end
       end
 
       private
+      
+      # REVIEW: Method naming
 
-      def extract_triangles(entities, transformation = IDENTITY)
+      def extract_face_data(entities, transformation = IDENTITY)
         # TODO: Resolve material from parent
         # (Can look at Eneroth Difference Report for this)
         entities =
@@ -46,9 +60,9 @@ module Eneroth
         entities.flat_map do |entity|
           case entity
           when Sketchup::Face
-            triangle_data(entity, transformation)
+            face_data(entity, transformation)
           when Sketchup::ComponentInstance, Sketchup::Group
-            extract_triangles(
+            extract_face_data(
               entity.definition.entities,
               transformation * entity.transformation
             )
@@ -56,21 +70,22 @@ module Eneroth
         end.compact.flatten
       end
 
-      TriangleData = Struct.new(:corners, :normals, :material)
+      # TODO: Consider storing UVQ
+      FaceData = Struct.new(:triangle_corners, :triangle_normals, :material)
 
-      def triangle_data(face, transformation)
+      def face_data(face, transformation)
         # 4 = Include normals
         mesh = face.mesh(4)
+        triangle_corners = []
+        triangle_normals = []
         mesh.polygons.map do |triangle|
-          corners = []
-          normals = []
           triangle.each do |i|
-            corners << mesh.point_at(i.abs).transform(transformation)
+            triangle_corners << mesh.point_at(i.abs).transform(transformation)
             # TODO: Transform as normal to honor any shearing
-            normals << mesh.normal_at(i.abs).transform(transformation)
+            triangle_normals << mesh.normal_at(i.abs).transform(transformation)
           end
-          TriangleData.new(corners, normals, face.material)
         end
+        FaceData.new(triangle_corners, triangle_normals, face.material)
       end
     end
   end
