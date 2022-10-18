@@ -6,7 +6,7 @@ module Eneroth
     Sketchup.require "#{PLUGIN_ROOT}/bounds_helper"
     Sketchup.require "#{PLUGIN_ROOT}/entity_helper"
     Sketchup.require "#{PLUGIN_ROOT}/tool"
-    Sketchup.require "#{PLUGIN_ROOT}/extract_lines"
+    Sketchup.require "#{PLUGIN_ROOT}/preview_geometry"
     Sketchup.require "#{PLUGIN_ROOT}/copy_entities"
     Sketchup.require "#{PLUGIN_ROOT}/geom_helper"
 
@@ -83,14 +83,7 @@ module Eneroth
       def draw(view)
         # Mirror preview
         if plane? && !view.model.selection.empty?
-          # TODO: Extract drawing of preview. Have dedicated "ghost geometry"
-          # class with constructor (from entities) and draw method (with custom
-          # transformation).
-          tr = transformation
-          corners = @preview.map { |td| td.corners.map { |c| c.transform(tr) }}.flatten
-          normals = @preview.map { |td| td.normals.map { |n| n.transform(tr) }}.flatten
-          view.drawing_color = [255, 255, 255, PREVIEW_TRANSPARENCY] # TODO: Get from face.
-          view.draw(GL_TRIANGLES, corners, normals: normals)
+          @preview_geometry.draw(view, transformation)
         end
 
         # Drag direction line
@@ -482,9 +475,7 @@ module Eneroth
       # Set up cache for the untransformed state of the preview.
       # Called whenever the selection to be transformed is changed.
       def init_preview_source(model)
-        # Flat array of points making up lines to preview, without any
-        # mirroring.
-        @preview = ExtractLines.extract_triangles(model.selection)
+        @preview_geometry = PreviewGeometry.new(model.selection, transparency: PREVIEW_TRANSPARENCY)
       end
     end
   end
