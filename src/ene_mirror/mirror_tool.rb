@@ -453,6 +453,7 @@ module Eneroth
           view.drawing_color = color
           view.line_width = hovered ? 3 : 2
           view.draw(GL_LINE_LOOP, points)
+          view.line_width = 1
         end
       end
 
