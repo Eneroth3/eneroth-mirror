@@ -19,7 +19,7 @@ module Eneroth
       def initialize(entities, transparency: 0.5, transformation: IDENTITY)
         # REVIEW: Transparency vs opacity
         @transparency = transparency
-        @face_data = extract_face_data(entities)
+        @face_data = recurse_entities(entities)
       end
 
       # Draw the PreviewGeometry. Typically called in each SketchUp tool draw
@@ -47,10 +47,8 @@ module Eneroth
       end
 
       private
-      
-      # REVIEW: Method naming
 
-      def extract_face_data(entities, transformation = IDENTITY)
+      def recurse_entities(entities, transformation = IDENTITY)
         # TODO: Resolve material from parent
         # (Can look at Eneroth Difference Report for this)
         entities =
@@ -58,9 +56,9 @@ module Eneroth
         entities.flat_map do |entity|
           case entity
           when Sketchup::Face
-            face_data(entity, transformation)
+            extract_face_data(entity, transformation)
           when Sketchup::ComponentInstance, Sketchup::Group
-            extract_face_data(
+            recurse_entities(
               entity.definition.entities,
               transformation * entity.transformation
             )
@@ -68,10 +66,10 @@ module Eneroth
         end.compact.flatten
       end
 
-      # TODO: Consider storing UVQ
+      # REVIEW: Consider storing UVQ. Render material in #draw.
       FaceData = Struct.new(:triangle_corners, :triangle_normals, :material)
 
-      def face_data(face, transformation)
+      def extract_face_data(face, transformation)
         # 4 = Include normals
         mesh = face.mesh(4)
         triangle_corners = []
@@ -82,6 +80,7 @@ module Eneroth
             triangle_normals << transform_as_normal(mesh.normal_at(i.abs), transformation)
           end
         end
+
         FaceData.new(triangle_corners, triangle_normals, face.material)
       end
 
