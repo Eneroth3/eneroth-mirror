@@ -28,7 +28,7 @@ module Eneroth
 
       # Native Move Copy
       CURSOR_COPY = 642
-      
+
       PREVIEW_TRANSPARENCY = 0.5
 
       # @api
@@ -114,6 +114,11 @@ module Eneroth
         bounds = Sketchup.active_model.bounds
         bounds.add(@ip.position) if @ip.position
         bounds.add(@ip_direction.position) if @ip_direction.position
+
+        # Bounds of the geometry preview
+        if plane? && !Sketchup.active_model.selection.empty?
+          8.times { |i| bounds.add(@selection_bounds.corner(i).transform(transformation)) }
+        end
 
         bounds
       end
@@ -476,6 +481,9 @@ module Eneroth
       # Called whenever the selection to be transformed is changed.
       def init_preview_source(model)
         @preview_geometry = PreviewGeometry.new(model.selection, transparency: PREVIEW_TRANSPARENCY)
+
+        @selection_bounds = Geom::BoundingBox.new
+        model.selection.each { |e| @selection_bounds.add(e.bounds) }
       end
     end
   end
