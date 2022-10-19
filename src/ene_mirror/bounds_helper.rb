@@ -2,7 +2,8 @@
 
 module Eneroth
   module Mirror
-    Sketchup.require "#{PLUGIN_ROOT}/my_geom"
+    Sketchup.require "#{PLUGIN_ROOT}/geom_helper"
+    Sketchup.require "#{PLUGIN_ROOT}/entity_helper"
 
     # Extract useful info from bounding boxes.
     #
@@ -99,12 +100,12 @@ module Eneroth
       # @return [Array<Geom::Vector3d>]
       def self.normals(transformation = IDENTITY)
         [
-          MyGeom.transform_as_normal(X_AXIS, transformation),
-          MyGeom.transform_as_normal(Y_AXIS, transformation),
-          MyGeom.transform_as_normal(Z_AXIS, transformation),
-          MyGeom.transform_as_normal(X_AXIS.reverse, transformation),
-          MyGeom.transform_as_normal(Y_AXIS.reverse, transformation),
-          MyGeom.transform_as_normal(Z_AXIS.reverse, transformation)
+          GeomHelper.transform_as_normal(X_AXIS, transformation),
+          GeomHelper.transform_as_normal(Y_AXIS, transformation),
+          GeomHelper.transform_as_normal(Z_AXIS, transformation),
+          GeomHelper.transform_as_normal(X_AXIS.reverse, transformation),
+          GeomHelper.transform_as_normal(Y_AXIS.reverse, transformation),
+          GeomHelper.transform_as_normal(Z_AXIS.reverse, transformation)
         ]
       end
 
@@ -139,7 +140,7 @@ module Eneroth
       def self.intersect_line(line, bounds, transformation = IDENTITY)
         line_space = Geom::Transformation.new(*line)
         bounds_line_space = line_space.inverse * transformation
-        flipped = MyGeom.flipped?(bounds_line_space)
+        flipped = GeomHelper.flipped?(bounds_line_space)
         sides = sides(bounds, bounds_line_space)
         index = sides.find_index { |s| within?(s, flipped) }
         return unless index
@@ -155,6 +156,42 @@ module Eneroth
         )
       end
 
+      # Get the bounding box for the selection.
+      #
+      # This may be in global coordinates, or if only a single instance is
+      # selected, in its internal coordinates.
+      #
+      # @param selection [Sketchup::Selection]
+      #
+      # @return [Geom::BoundingBox]
+      #
+      # @see selection_bounds_transform
+      def self.selection_bounds(selection)
+        if selection.size == 1 && EntityHelper.instance?(selection.first)
+          return selection.first.definition.bounds
+        end
+
+        bounds = Geom::BoundingBox.new
+        selection.each { |e| bounds.add(e.bounds) }
+
+        bounds
+      end
+
+      # Get the bounding box transformation for the selection.
+      #
+      # @param selection [Sketchup::Selection]
+      #
+      # @return [Geom::BoundingBox]
+      #
+      # @see selection_bounds_transform
+      def self.selection_bounds_transformation(selection)
+        if selection.size == 1 && EntityHelper.instance?(selection.first)
+          return selection.first.transformation
+        end
+
+        IDENTITY
+      end
+
       # Private
 
       def self.within?(corners, flipped)
@@ -165,7 +202,7 @@ module Eneroth
       private_class_method :within?
 
       def self.facing?(corners)
-        MyGeom.polygon_normal(corners).z.negative?
+        GeomHelper.polygon_normal(corners).z.negative?
       end
       private_class_method :facing?
     end
