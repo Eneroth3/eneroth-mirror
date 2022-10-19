@@ -48,19 +48,18 @@ module Eneroth
 
       private
 
-      def recurse_entities(entities, transformation = IDENTITY)
-        # TODO: Resolve material from parent
-        # (Can look at Eneroth Difference Report for this)
+      def recurse_entities(entities, transformation = IDENTITY, parent_material = nil)
         entities =
           entities.to_a + entities.grep(Sketchup::Face).flat_map(&:edges).uniq
         entities.flat_map do |entity|
           case entity
           when Sketchup::Face
-            extract_face_data(entity, transformation)
+            extract_face_data(entity, transformation, parent_material)
           when Sketchup::ComponentInstance, Sketchup::Group
             recurse_entities(
               entity.definition.entities,
-              transformation * entity.transformation
+              transformation * entity.transformation,
+              entity.material || parent_material
             )
           end
         end.compact.flatten
@@ -69,7 +68,7 @@ module Eneroth
       # REVIEW: Consider storing UVQ. Render material in #draw.
       FaceData = Struct.new(:triangle_corners, :triangle_normals, :material)
 
-      def extract_face_data(face, transformation)
+      def extract_face_data(face, transformation, parent_material)
         # 4 = Include normals
         mesh = face.mesh(4)
         triangle_corners = []
@@ -81,7 +80,7 @@ module Eneroth
           end
         end
 
-        FaceData.new(triangle_corners, triangle_normals, face.material)
+        FaceData.new(triangle_corners, triangle_normals, face.material || parent_material)
       end
 
       # Transform a normal vector.
