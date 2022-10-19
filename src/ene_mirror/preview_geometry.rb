@@ -30,16 +30,15 @@ module Eneroth
       #   Typically calculated from mouse movement.
       def draw(view, transformation)
         @face_data.each do |face_data|
-          color = 
+          color =
             if face_data.material
               Sketchup::Color.new(face_data.material.color)
             else
-              # TODO: Pick model drawing color
-              Sketchup::Color.new("white")
+              view.model.rendering_options["FaceFrontColor"]
             end
           color.alpha = @transparency
           view.drawing_color = color
-          
+
           corners = face_data.triangle_corners.map { |c| c.transform(transformation) }
           normals = face_data.triangle_normals.map { |n| transform_as_normal(n, transformation) }
 
