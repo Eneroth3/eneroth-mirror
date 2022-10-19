@@ -10,3 +10,8 @@ Behaviors:
 * Click on bounds (but not on selected geometry) to flip around its boundary
 * Press and drag to flip along any custom plane
 * Live preview on hover
+
+## Installation
+
+Place the content of the `src/` folder in your SketchUp plugin's folder,
+e.g. `%appdata%\SketchUp\SketchUp 2022\SketchUp\Plugins`.
