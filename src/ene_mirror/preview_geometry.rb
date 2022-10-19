@@ -41,9 +41,8 @@ module Eneroth
           view.drawing_color = color
           
           corners = face_data.triangle_corners.map { |c| c.transform(transformation) }
-          # TODO: Transform as normal
-          normals = face_data.triangle_normals.map { |n| n.transform(transformation) }
-          
+          normals = face_data.triangle_normals.map { |n| transform_as_normal(n, transformation) }
+
           view.draw(GL_TRIANGLES, corners, normals: normals)
         end
       end
@@ -81,11 +80,33 @@ module Eneroth
         mesh.polygons.map do |triangle|
           triangle.each do |i|
             triangle_corners << mesh.point_at(i.abs).transform(transformation)
-            # TODO: Transform as normal to honor any shearing
-            triangle_normals << mesh.normal_at(i.abs).transform(transformation)
+            triangle_normals << transform_as_normal(mesh.normal_at(i.abs), transformation)
           end
         end
         FaceData.new(triangle_corners, triangle_normals, face.material)
+      end
+
+      # Transform a normal vector.
+      #
+      # Using a conventional vector transformation on a normal vector can stop
+      # it from being perpendicular to a plane, if the transformation includes
+      # non-uniform scaling or shearing. This method retains the relation to a
+      # perpendicular plane.
+      #
+      # @param normal [Geom::Vector3d]
+      # @param transformation [Geom::Transformation]
+      #
+      # @return [Vector3d]
+      def transform_as_normal(normal, transformation)
+        a = transformation.to_a
+        transposed = Geom::Transformation.new([
+          a[0], a[4], a[8],  0,
+          a[1], a[5], a[9],  0,
+          a[2], a[6], a[10], 0,
+          0,    0,    0,     a[15]
+        ])
+
+        normal.transform(transposed).normalize
       end
     end
   end
